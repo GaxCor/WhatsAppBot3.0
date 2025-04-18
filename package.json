@@ -12,9 +12,14 @@
   },
   "keywords": [],
   "dependencies": {
+    "@builderbot-plugins/openai-agents": "^1.0.10",
     "@builderbot/bot": "1.2.5",
     "@builderbot/database-json": "^1.2.5",
     "@builderbot/provider-baileys": "1.2.5",
+    "dotenv": "^16.4.7",
+    "googleapis": "^146.0.0",
+    "mysql2": "^3.14.0",
+    "readline-sync": "^1.4.10",
     "sharp": "^0.33.5"
   },
   "devDependencies": {

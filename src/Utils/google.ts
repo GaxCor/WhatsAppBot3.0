@@ -11,8 +11,9 @@ dotenv.config();
 
 const DB_NAME = process.env.DB_NAME!;
 const BOT_URL = process.env.BOT_URL!;
-const GETURL_API = process.env.GETURL_API!;
-const TOKEN_TRADER_API = process.env.TOKEN_TRADER_API!;
+const GETURL_API =
+  "https://v539peby84.execute-api.us-east-2.amazonaws.com/lambda/GetCloudflareURLLambda";
+const TOKEN_TRADER_API = "https://auth.newgiro.com";
 // === Leer credenciales desde credentials.json ===
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -4,7 +4,7 @@ node_modules
 *_sessions
 *tokens
 .wwebjs*
-
+credentials.json
 *.log
 *qr.png
 de

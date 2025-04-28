@@ -1,5 +1,8 @@
 {
-  "guardarEnBaseDeDatos": {
-    "enabled": true
-  }
+  "guardarEnBaseDeDatos": true,
+  "etiquetaChatbot": {
+    "enabled": true,
+    "texto": "> CHATBOT"
+  },
+  "guardarContactoEnGoogle": true
 }

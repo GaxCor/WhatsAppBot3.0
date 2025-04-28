@@ -9,9 +9,29 @@ import {
 } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { guardarEnBaseDeDatos } from "./Utils/functions";
+import {
+  actualizarEstadoBot,
+  guardarEnBaseDeDatos,
+  mensajeBOT,
+  verificarEstadoBot,
+} from "./Utils/functions";
+import {
+  existeNumeroEnContactos,
+  generarAuthLink,
+  guardarContactoEnGoogle,
+  guardarTokenEnDB,
+  handleAuthGoogle,
+  obtenerURLBot,
+  registrarInstancia,
+} from "./Utils/google";
+import fetch from "node-fetch";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const PORT = process.env.PORT ?? 3008;
+const PHONE_OWNER = process.env.PHONE_OWNER!;
+const LOCAL_API_URL = `http://localhost:${PORT}/v1/messages`;
 
 const welcomeFlow = addKeyword<Provider, Database>([
   EVENTS.WELCOME,
@@ -23,24 +43,91 @@ const welcomeFlow = addKeyword<Provider, Database>([
   EVENTS.DOCUMENT,
   EVENTS.CALL,
   EVENTS.ACTION,
-])
-  .addAnswer(`🙌 Hello welcome to this *Chatbot*`)
-  .addAction(async (ctx) => {
-    // Guardar mensaje en la base de datos
-    await guardarEnBaseDeDatos({
-      source: "CLT", // puedes cambiar a "WHA" si es Webhook o según lógica
-      phone: ctx.from,
-      message: ctx.body,
-      name: ctx.name, // si tienes un flujo para capturar nombre, pásalo aquí
-      messageId: ctx.key?.id ?? null,
-      timestamp: ctx.timestamp ? ctx.timestamp * 1000 : Date.now(),
-    });
+]).addAction(async (ctx, { flowDynamic }) => {
+  await guardarEnBaseDeDatos({
+    phone: ctx.from,
+    message: ctx.body,
+    messageId: ctx.key.id,
+    fromMe: ctx.key.fromMe,
+    timestamp: ctx.timestamp,
   });
 
-const main = async () => {
-  const adapterFlow = createFlow([welcomeFlow]);
+  const estaActivo = await verificarEstadoBot(ctx.from);
+  if (!estaActivo) {
+    console.log("Bot inactivo para este usuario o globalmente.");
+    return;
+  }
+  const bot_id = String(ctx.host ?? PHONE_OWNER);
+  const nombre = ctx.name ?? "";
+  const numero = ctx.from;
 
-  const adapterProvider = createProvider(Provider);
+  const yaExiste = await existeNumeroEnContactos(bot_id, numero);
+  if (!yaExiste) {
+    await guardarContactoEnGoogle(bot_id, nombre, numero);
+  }
+});
+
+const mensajeFlow = addKeyword<Provider, Database>([EVENTS.ACTION]).addAction(
+  async (ctx, { flowDynamic }) => {
+    await mensajeBOT({
+      ctx,
+      flowDynamic,
+      mensaje: [`PPHello welcome to this *Chatbot*`],
+    });
+  }
+);
+
+const contactoFlow = addKeyword("/authgoogle").addAction(
+  async (ctx, { flowDynamic }) => {
+    await handleAuthGoogle(ctx, flowDynamic);
+  }
+);
+
+const activeFlow = addKeyword<Provider, Database>("/onoff").addAnswer(
+  [
+    "🔧 *Configuración del bot*",
+    "",
+    "Envía los nuevos valores así:",
+    "`Global Local Phone`",
+    "",
+    "*Phone* es opcional (se usará tu número si no lo pones)",
+    "",
+    "*Ejemplo:*\n`true false 5218112345678`",
+  ].join("\n"),
+  { capture: true },
+  async (ctx, { flowDynamic }) => {
+    const partes = ctx.body.trim().split(/\s+/);
+
+    if (partes.length < 2 || partes.length > 3) {
+      return await flowDynamic(
+        "❌ Formato incorrecto. Escribe al menos dos valores: Global y Local. Opcionalmente puedes agregar un número."
+      );
+    }
+
+    const [globalStr, localStr, phoneStr] = partes;
+    const nuevoValorGlobal = globalStr === "true";
+    const nuevoValorLocal = localStr === "true";
+
+    await actualizarEstadoBot({
+      ctx,
+      nuevoValorGlobal,
+      nuevoValorLocal,
+      phone: phoneStr ?? ctx.from,
+    });
+
+    await flowDynamic("✅ Estado actualizado con éxito.");
+  }
+);
+
+const main = async () => {
+  const adapterFlow = createFlow([
+    welcomeFlow,
+    mensajeFlow,
+    activeFlow,
+    contactoFlow,
+  ]);
+
+  const adapterProvider = createProvider(Provider, { writeMyself: "both" });
   const adapterDB = new Database();
 
   const { handleCtx, httpServer } = await createBot({
@@ -87,6 +174,58 @@ const main = async () => {
       return res.end(JSON.stringify({ status: "ok", number, intent }));
     })
   );
+
+  adapterProvider.server.post("/oauth/token", async (req: any, res: any) => {
+    const { tokens, bot_id } = req.body;
+
+    if (!tokens || !bot_id) {
+      if (typeof res.status === "function") {
+        res.status(400).json({ error: "Faltan datos (tokens o bot_id)" });
+      } else {
+        console.error(
+          "❌ No se pudo enviar respuesta: res.status no es función"
+        );
+      }
+      return;
+    }
+
+    // ❗ Validación de seguridad: el token debe tener refresh_token
+    if (!tokens.refresh_token) {
+      console.warn(
+        `⚠️ Token sin refresh_token recibido para ${bot_id}, NO se guardará.`
+      );
+      console.log("🔎 Token recibido:", JSON.stringify(tokens, null, 2));
+
+      if (typeof res.status === "function") {
+        res.status(400).json({
+          error:
+            "El token recibido no contiene refresh_token. Vuelve a autenticar con prompt=consent.",
+        });
+      }
+      return;
+    }
+
+    try {
+      console.log("🔐 Token recibido para bot:", bot_id);
+      await guardarTokenEnDB(bot_id, tokens);
+
+      if (typeof res.json === "function") {
+        res.json({ status: "Token guardado con éxito" });
+      } else {
+        console.log("✅ Token guardado, pero res.json no está disponible.");
+      }
+    } catch (err) {
+      console.error("❌ Error al guardar token:", err);
+
+      if (typeof res.status === "function") {
+        res.status(500).json({ error: "No se pudo guardar el token" });
+      } else {
+        console.error(
+          "❌ No se pudo enviar error al cliente: res.status no es función"
+        );
+      }
+    }
+  });
 
   httpServer(+PORT);
 };

@@ -1,5 +1,3 @@
-// src/Utils/guardarEnBaseDeDatos.ts
-
 import { getConnection } from "~/db/mysql";
 import { getFunctionConfig } from "./configManager";
 import { toZonedTime } from "date-fns-tz";
@@ -10,32 +8,30 @@ interface GuardarDatosArgs {
   phone: string;
   name?: string;
   detalles?: string;
-  source?: Source;
   message?: string;
+  fromMe?: boolean;
+  source?: Source; // 👈 Agregado para permitir uso manual de "BOT"
   messageId?: string;
   timestamp?: number;
 }
 
 /**
- * Ajusta un timestamp a UTC como si viniera desde la hora local de Monterrey.
+ * Convierte una fecha a UTC tomando como referencia la zona horaria de Monterrey
  */
 const toMonterreyBasedUTC = (fecha: number | Date): Date => {
   const timeZone = "America/Monterrey";
   const baseDate = typeof fecha === "number" ? new Date(fecha) : fecha;
-
   const localDate = toZonedTime(baseDate, timeZone);
   return new Date(localDate.getTime());
 };
 
-/**
- * Guarda datos del usuario y mensaje en base de datos, ajustando fechas a hora de Monterrey.
- */
 export const guardarEnBaseDeDatos = async ({
   phone,
   name = "",
   detalles = "",
-  source,
   message,
+  fromMe = false,
+  source,
   messageId = null,
   timestamp = Date.now(),
 }: GuardarDatosArgs) => {
@@ -51,6 +47,7 @@ export const guardarEnBaseDeDatos = async ({
   const conn = await getConnection();
 
   try {
+    // 1. Verificar si el usuario ya existe
     const [usuarios] = await conn.execute(
       "SELECT id FROM usuarios WHERE phone = ?",
       [phone]
@@ -76,18 +73,154 @@ export const guardarEnBaseDeDatos = async ({
       usuarioId = (result as any).insertId;
     }
 
-    if (message && source) {
+    // 2. Guardar mensaje si existe
+    if (message) {
       const fechaUTC = toMonterreyBasedUTC(timestamp);
+      const finalSource: Source = source ?? (fromMe ? "WHA" : "CLT"); // ✅ Lógica priorizada
+
       await conn.execute(
         `INSERT INTO mensajes (usuario_id, message, sender, message_id, date)
          VALUES (?, ?, ?, ?, ?)`,
-        [usuarioId, message, source, messageId, fechaUTC]
+        [usuarioId, message, finalSource, messageId, fechaUTC]
       );
     }
 
     await conn.end();
   } catch (error) {
     console.error("❌ Error guardando en MySQL:", error);
+    await conn.end();
+    throw error;
+  }
+};
+
+/**
+ * Agrega un texto personalizado (por defecto "> CHATBOT") al final de cada mensaje
+ * si está habilitado en config.functions.json
+ */
+export const formatearMensajeBot = (mensajes: string | string[]): string[] => {
+  const config = getFunctionConfig("etiquetaChatbot");
+
+  if (!config?.enabled) {
+    return Array.isArray(mensajes) ? mensajes : [mensajes];
+  }
+
+  const textoEtiqueta = config.texto ?? "> CHATBOT";
+  const mensajesArray = Array.isArray(mensajes) ? mensajes : [mensajes];
+
+  return mensajesArray.map((msg) => `${msg}\n${textoEtiqueta}`);
+};
+
+/**
+ * Envía un mensaje del bot y lo guarda en la base como 'BOT'.
+ */
+interface MensajeBOTParams {
+  ctx: any;
+  flowDynamic: (msg: string | string[]) => Promise<void>;
+  mensaje: string | string[];
+}
+
+export const mensajeBOT = async ({
+  ctx,
+  flowDynamic,
+  mensaje,
+}: MensajeBOTParams) => {
+  // 2. Guardar cada mensaje como mensaje de BOT
+  const mensajesArray = Array.isArray(mensaje) ? mensaje : [mensaje];
+  const mensajesParaMostrar = formatearMensajeBot(mensajesArray);
+  await flowDynamic(mensajesParaMostrar);
+
+  for (const msg of mensajesArray) {
+    await guardarEnBaseDeDatos({
+      phone: ctx.from,
+      message: msg,
+      source: "BOT",
+    });
+  }
+};
+
+export const verificarEstadoBot = async (phone: string): Promise<boolean> => {
+  const conn = await getConnection();
+  const iconoEstado = (activo: boolean): string => (activo ? "🟢" : "🔴");
+  try {
+    // 1. Estado global
+    const [globalRows] = await conn.execute(
+      "SELECT activo FROM global_state WHERE id = 1"
+    );
+    const globalActivo = (globalRows as any[])[0]?.activo ?? false;
+
+    // 2. Estado local por usuario
+    const [usuarioRows] = await conn.execute(
+      "SELECT state FROM usuarios WHERE phone = ?",
+      [phone]
+    );
+    const localActivo = (usuarioRows as any[])[0]?.state ?? false;
+
+    // 3. Mostrar estados con icono
+    console.log(
+      `🌐 Global: ${iconoEstado(
+        globalActivo
+      )} (${globalActivo}) | 👤 Local: ${iconoEstado(
+        localActivo
+      )} (${localActivo})`
+    );
+    await conn.end();
+    return globalActivo && localActivo;
+  } catch (error) {
+    console.error("❌ Error verificando estado del bot:", error);
+    await conn.end();
+    return false;
+  }
+};
+
+interface ActualizarEstadoParams {
+  ctx: any;
+  nuevoValorGlobal?: boolean;
+  nuevoValorLocal?: boolean;
+  phone?: string;
+}
+
+/**
+ * Cambia el estado global y/o local del bot en la base de datos.
+ * Si no se proporciona `phone`, usa ctx.from para el estado local.
+ */
+export const actualizarEstadoBot = async ({
+  ctx,
+  nuevoValorGlobal,
+  nuevoValorLocal,
+  phone,
+}: ActualizarEstadoParams): Promise<void> => {
+  const conn = await getConnection();
+
+  try {
+    // Cambiar estado global si se recibió
+    if (typeof nuevoValorGlobal === "boolean") {
+      await conn.execute("UPDATE global_state SET activo = ? WHERE id = 1", [
+        nuevoValorGlobal,
+      ]);
+      console.log(`✅ Estado GLOBAL actualizado a: ${nuevoValorGlobal}`);
+    }
+
+    // Cambiar estado local si se recibió
+    if (typeof nuevoValorLocal === "boolean") {
+      const numero = phone ?? ctx?.from;
+      if (!numero) {
+        console.warn(
+          "⚠️ No se proporcionó número de teléfono para cambiar estado local."
+        );
+      } else {
+        await conn.execute("UPDATE usuarios SET state = ? WHERE phone = ?", [
+          nuevoValorLocal,
+          numero,
+        ]);
+        console.log(
+          `✅ Estado LOCAL para ${numero} actualizado a: ${nuevoValorLocal}`
+        );
+      }
+    }
+
+    await conn.end();
+  } catch (error) {
+    console.error("❌ Error actualizando estado del bot:", error);
     await conn.end();
     throw error;
   }

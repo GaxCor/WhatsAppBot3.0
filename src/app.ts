@@ -54,7 +54,7 @@ const welcomeFlow = addKeyword<Provider, Database>([
 
   const estaActivo = await verificarEstadoBot(ctx.from);
   if (!estaActivo) {
-    console.log("Bot inactivo para este usuario o globalmente.");
+    console.log("Bot inactivov para este usuario o globalmente.");
     return;
   }
   const bot_id = String(ctx.host ?? PHONE_OWNER);

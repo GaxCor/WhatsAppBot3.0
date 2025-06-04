@@ -26,6 +26,7 @@ import {
 } from "./Utils/google";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+import { flowRouter, masterFlow } from "./Flows/flows";
 
 dotenv.config();
 
@@ -67,18 +68,19 @@ const welcomeFlow = addKeyword<Provider, Database>([
   }
 });
 
-const mensajeFlow = addKeyword<Provider, Database>([EVENTS.ACTION]).addAction(
-  async (ctx, { flowDynamic }) => {
-    await mensajeBOT({
-      ctx,
-      flowDynamic,
-      mensaje: [`PPHello welcome to this *Chatbot*`],
-    });
+const mensajeFlow = addKeyword<Provider, Database>(["Prueba"]).addAction(
+  async (ctx, { flowDynamic, provider }) => {
+    await provider.sendPresenceUpdate(`${ctx.from}@c.us`, "composing");
+    // await mensajeBOT({
+    //   ctx,
+    //   flowDynamic,
+    //   mensaje: [`PPHello welcome to this *Chatbot*`],
+    // });
   }
 );
 
-const contactoFlow = addKeyword("/authgoogle").addAction(
-  async (ctx, { flowDynamic }) => {
+const contactoFlow = addKeyword<Provider, Database>("/authgoogle").addAction(
+  async (ctx, { flowDynamic, provider }) => {
     await handleAuthGoogle(ctx, flowDynamic);
   }
 );
@@ -121,10 +123,10 @@ const activeFlow = addKeyword<Provider, Database>("/onoff").addAnswer(
 
 const main = async () => {
   const adapterFlow = createFlow([
-    welcomeFlow,
-    mensajeFlow,
-    activeFlow,
+    flowRouter,
+    masterFlow,
     contactoFlow,
+    activeFlow,
   ]);
 
   const adapterProvider = createProvider(Provider, { writeMyself: "both" });

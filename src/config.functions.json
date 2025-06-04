@@ -4,5 +4,13 @@
     "enabled": true,
     "texto": "> CHATBOT"
   },
-  "guardarContactoEnGoogle": true
+  "guardarContactoEnGoogle": true,
+  "historialIA": {
+    "enabled": true,
+    "cantidad": 5
+  },
+  "presenciaIA": {
+    "enabled": true,
+    "tipo": "composing"
+  }
 }

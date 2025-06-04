@@ -225,3 +225,62 @@ export const actualizarEstadoBot = async ({
     throw error;
   }
 };
+
+export const obtenerHistorial = async (phone: string): Promise<string[]> => {
+  const config = getFunctionConfig("historialIA");
+  if (!config?.enabled) return [];
+
+  const cantidad =
+    typeof config.cantidad === "number" && config.cantidad > 0
+      ? config.cantidad
+      : 5;
+
+  const conn = await getConnection();
+  try {
+    const [rows] = await conn.execute(
+      `
+      SELECT message, sender FROM mensajes 
+      INNER JOIN usuarios ON mensajes.usuario_id = usuarios.id
+      WHERE usuarios.phone = ?
+      ORDER BY mensajes.date DESC
+      LIMIT ${cantidad}
+      `,
+      [phone]
+    );
+
+    await conn.end();
+
+    const historial = (rows as any[])
+      .reverse() // más antiguo primero
+      .map((r) => `${r.sender === "CLT" ? "Cliente" : "Bot"}: ${r.message}`);
+
+    return historial;
+  } catch (err) {
+    console.error("❌ Error al obtener historial:", err);
+    await conn.end();
+    return [];
+  }
+};
+
+/**
+ * Envía señales de presencia (ej. typing, recording) si está habilitado en config.functions.json
+ */
+export const enviarPresenciaSiActiva = async (
+  provider: any,
+  remoteJid: string
+) => {
+  const config = getFunctionConfig("presenciaIA");
+  if (!config?.enabled) return;
+
+  const tipo = config.tipo ?? "composing"; // composing | recording | paused
+
+  try {
+    await provider.vendor.sendPresenceUpdate(tipo, remoteJid);
+
+    // Espera entre 1 y 3 segundos de forma aleatoria
+    const delay = Math.floor(Math.random() * 2000) + 1000; // 1000ms a 3000ms
+    await new Promise((res) => setTimeout(res, delay));
+  } catch (error) {
+    console.error("❌ Error al enviar presencia:", error);
+  }
+};

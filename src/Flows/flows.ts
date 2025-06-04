@@ -14,6 +14,12 @@ import {
   obtenerHistorial,
   verificarEstadoBot,
 } from "~/Utils/functions";
+import {
+  existeNumeroEnContactos,
+  guardarContactoEnGoogle,
+} from "~/Utils/google";
+
+const PHONE_OWNER = process.env.PHONE_OWNER!;
 
 export const flowRouter = addKeyword<Provider, Database>([
   EVENTS.WELCOME,
@@ -47,6 +53,14 @@ export const flowRouter = addKeyword<Provider, Database>([
       mensaje: "El bot no está disponible en este momento.",
     });
     return;
+  }
+  const bot_id = String(ctx.host ?? PHONE_OWNER);
+  const nombre = ctx.name ?? "";
+  const numero = ctx.from;
+
+  const yaExiste = await existeNumeroEnContactos(bot_id, numero);
+  if (!yaExiste) {
+    await guardarContactoEnGoogle(bot_id, nombre, numero);
   }
 
   // Obtener historial y buscar flujo por IA

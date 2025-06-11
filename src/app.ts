@@ -27,6 +27,7 @@ import {
 import fetch from "node-fetch";
 import dotenv from "dotenv";
 import { flowRouter, masterFlow } from "./Flows/flows";
+import { mostrarEstadoBot } from "./Utils/mostrarEstadoConfig";
 
 dotenv.config();
 
@@ -230,6 +231,10 @@ const main = async () => {
   });
 
   httpServer(+PORT);
+  // ✅ Hora del reinicio
+  adapterProvider.on("ready", () => {
+    mostrarEstadoBot();
+  });
 };
 
 main();

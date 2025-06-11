@@ -18,6 +18,7 @@ import {
   existeNumeroEnContactos,
   guardarContactoEnGoogle,
 } from "~/Utils/google";
+import { getFunctionConfig } from "~/Utils/configManager";
 
 const PHONE_OWNER = process.env.PHONE_OWNER!;
 
@@ -31,13 +32,17 @@ export const flowRouter = addKeyword<Provider, Database>([
   EVENTS.DOCUMENT,
   EVENTS.CALL,
 ]).addAction(async (ctx, { state, gotoFlow, flowDynamic, provider }) => {
-  // 👉 Ejecutar presencia si está activada
-  await enviarPresenciaSiActiva(provider, `${ctx.from}@c.us`);
+  const config = getFunctionConfig("ChatbotIA");
+  if (!config.enabled) {
+    console.log("⛔️ Flujos apagados desde config.functions.json");
+    return;
+  }
   const mensajeUsuario = ctx.body || "[contenido no textual]";
 
   // Guardar mensaje del cliente en base de datos
   await guardarEnBaseDeDatos({
     phone: ctx.from,
+    name: ctx.name,
     message: ctx.body,
     source: "CLT",
     messageId: ctx.id,
@@ -50,10 +55,12 @@ export const flowRouter = addKeyword<Provider, Database>([
     await mensajeBOT({
       ctx,
       flowDynamic,
-      mensaje: "El bot no está disponible en este momento.",
+      mensaje: "El serivicio no está disponible en este momento.",
     });
     return;
   }
+  // 👉 Ejecutar presencia si está activada
+  await enviarPresenciaSiActiva(provider, `${ctx.from}@c.us`);
   const bot_id = String(ctx.host ?? PHONE_OWNER);
   const nombre = ctx.name ?? "";
   const numero = ctx.from;

@@ -1,4 +1,5 @@
 {
+  "ChatbotIA": true,
   "guardarEnBaseDeDatos": true,
   "etiquetaChatbot": {
     "enabled": true,

@@ -116,9 +116,13 @@ export async function guardarTokenEnDB(
 export const handleAuthGoogle = async (ctx: any, flowDynamic: any) => {
   const phone = ctx.from;
   const host = ctx.host;
-
+  const numeroNormalizadoPhone = phone.replace(/\D/g, "").slice(-10);
+  const numeroNormalizadoHost = host.replace(/\D/g, "").slice(-10);
   // Validar que el usuario sea el mismo que el host
-  if (phone !== host) {
+  console.log(
+    `🔍 Validando autorización: phone=${numeroNormalizadoPhone}, host=${numeroNormalizadoHost}`
+  );
+  if (numeroNormalizadoPhone !== numeroNormalizadoHost) {
     await flowDynamic(
       "❌ Este comando solo está disponible para el dueño del bot."
     );
@@ -265,12 +269,13 @@ export const existeNumeroEnContactos = async (
 
     const conexiones = res.data.connections || [];
 
-    const numeroNormalizado = numero.replace(/\D/g, "");
+    // Extrae solo los últimos 10 dígitos del número a buscar
+    const numeroNormalizado = numero.replace(/\D/g, "").slice(-10);
 
     for (const contacto of conexiones) {
       const telefonos = contacto.phoneNumbers || [];
       for (const tel of telefonos) {
-        const valor = tel.value?.replace(/\D/g, "");
+        const valor = tel.value?.replace(/\D/g, "").slice(-10);
         if (valor === numeroNormalizado) {
           return true;
         }

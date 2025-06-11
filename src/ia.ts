@@ -118,7 +118,7 @@ export async function buscarFlujoDesdeIA(
   );
 
   const systemPrompt = `
-Eres un asistente de CarSolutionMx para WhatsApp.
+Eres un asistente para WhatsApp.
 Tu tarea es:
 1. Analizar el mensaje del cliente.
 2. Elegir cuál de los siguientes flujos es más adecuado con base en el contexto y la descripción del flujo.

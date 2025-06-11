@@ -263,23 +263,32 @@ export const existeNumeroEnContactos = async (
   try {
     const res = await peopleService.people.connections.list({
       resourceName: "people/me",
-      personFields: "phoneNumbers",
+      personFields: "names,phoneNumbers",
       pageSize: 1000,
     });
 
     const conexiones = res.data.connections || [];
 
-    // Extrae solo los últimos 10 dígitos del número a buscar
     const numeroNormalizado = numero.replace(/\D/g, "").slice(-10);
+    const coincidencias = [];
 
     for (const contacto of conexiones) {
       const telefonos = contacto.phoneNumbers || [];
       for (const tel of telefonos) {
         const valor = tel.value?.replace(/\D/g, "").slice(-10);
         if (valor === numeroNormalizado) {
-          return true;
+          const nombre = contacto.names?.[0]?.displayName || "(sin nombre)";
+          coincidencias.push({ nombre, telefono: tel.value });
         }
       }
+    }
+
+    if (coincidencias.length > 0) {
+      console.log(`✅ Se encontraron ${coincidencias.length} coincidencia(s):`);
+      coincidencias.forEach((c, i) => {
+        console.log(`→ [${i + 1}] ${c.nombre} - ${c.telefono}`);
+      });
+      return true;
     }
 
     return false;

@@ -29,7 +29,7 @@ export const mostrarEstadoBot = () => {
     const contenido = fs.readFileSync(rutaConfig, "utf-8");
     const config = JSON.parse(contenido);
 
-    console.log(chalk.bold("Estado de funciones del bot:"));
+    console.log(chalk.bold("Estado de funciones del bott:"));
 
     const imprimirEstado = (clave: string, valor: any) => {
       if (typeof valor === "boolean") {

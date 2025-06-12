@@ -35,51 +35,6 @@ const PORT = process.env.PORT ?? 3008;
 const PHONE_OWNER = process.env.PHONE_OWNER!;
 const LOCAL_API_URL = `http://localhost:${PORT}/v1/messages`;
 
-const welcomeFlow = addKeyword<Provider, Database>([
-  EVENTS.WELCOME,
-  EVENTS.VOICE_NOTE,
-  EVENTS.TEMPLATE,
-  EVENTS.ORDER,
-  EVENTS.MEDIA,
-  EVENTS.LOCATION,
-  EVENTS.DOCUMENT,
-  EVENTS.CALL,
-  EVENTS.ACTION,
-]).addAction(async (ctx, { flowDynamic }) => {
-  await guardarEnBaseDeDatos({
-    phone: ctx.from,
-    message: ctx.body,
-    messageId: ctx.key.id,
-    fromMe: ctx.key.fromMe,
-    timestamp: ctx.timestamp,
-  });
-
-  const estaActivo = await verificarEstadoBot(ctx.from);
-  if (!estaActivo) {
-    console.log("Bot inactivo para este usuario o globalmente.");
-    return;
-  }
-  const bot_id = String(ctx.host ?? PHONE_OWNER);
-  const nombre = ctx.name ?? "";
-  const numero = ctx.from;
-
-  const yaExiste = await existeNumeroEnContactos(bot_id, numero);
-  if (!yaExiste) {
-    await guardarContactoEnGoogle(bot_id, nombre, numero);
-  }
-});
-
-const mensajeFlow = addKeyword<Provider, Database>(["Prueba"]).addAction(
-  async (ctx, { flowDynamic, provider }) => {
-    await provider.sendPresenceUpdate(`${ctx.from}@c.us`, "composing");
-    // await mensajeBOT({
-    //   ctx,
-    //   flowDynamic,
-    //   mensaje: [`PPHello welcome to this *Chatbot*`],
-    // });
-  }
-);
-
 const contactoFlow = addKeyword<Provider, Database>("/authgoogle").addAction(
   async (ctx, { flowDynamic, provider }) => {
     await handleAuthGoogle(ctx, flowDynamic);

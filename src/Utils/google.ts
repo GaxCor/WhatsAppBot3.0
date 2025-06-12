@@ -161,6 +161,7 @@ export const handleAuthGoogle = async (ctx: any, flowDynamic: any) => {
   ]);
 };
 
+const memoriaContactosGuardados = new Set<string>();
 /**
  * Guarda un contacto (nombre y número) en la cuenta de Google asociada al bot.
  * @param bot_id El ID del bot (normalmente el número de teléfono)
@@ -174,6 +175,14 @@ export const guardarContactoEnGoogle = async (
 ): Promise<void> => {
   const config = getFunctionConfig("guardarContactoEnGoogle");
   if (!config?.enabled) return;
+
+  const claveMemoria = `${bot_id}:${normalizarUltimos10(numero)}`;
+  if (memoriaContactosGuardados.has(claveMemoria)) {
+    console.log(
+      `🧠 Memoria: contacto ya guardado recientemente → ${claveMemoria}`
+    );
+    return;
+  }
 
   const yaExiste = await existeNumeroEnContactos(bot_id, numero);
   if (yaExiste) return;
@@ -204,6 +213,12 @@ export const guardarContactoEnGoogle = async (
         phoneNumbers: [{ value: numero }],
       },
     });
+
+    memoriaContactosGuardados.add(claveMemoria);
+    setTimeout(
+      () => memoriaContactosGuardados.delete(claveMemoria),
+      5 * 60 * 1000
+    ); // 5 minutos
 
     console.log(`🟢 Contacto guardado como nuevo: ${nombre} - ${numero}`);
   } catch (err) {

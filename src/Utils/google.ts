@@ -185,14 +185,23 @@ export const guardarContactoEnGoogle = async (
   }
 
   const yaExiste = await existeNumeroEnContactos(bot_id, numero);
+
+  // Siempre intenta marcar la columna dependiendo de si ya existe
+  const conn1 = await getConnection();
+  await conn1.execute(
+    `UPDATE usuarios SET guardado_google = ? WHERE phone LIKE ?`,
+    [yaExiste, `%${normalizarUltimos10(numero)}`]
+  );
+  await conn1.end();
+
   if (yaExiste) return;
 
-  const conn = await getConnection();
-  const [rows]: any = await conn.execute(
+  const conn2 = await getConnection();
+  const [rows]: any = await conn2.execute(
     `SELECT valor_var FROM Infobot WHERE nombre_var = ?`,
     [`credenciales_google_${bot_id}`]
   );
-  await conn.end();
+  await conn2.end();
 
   if (!rows?.length) return;
 
@@ -221,6 +230,14 @@ export const guardarContactoEnGoogle = async (
     ); // 5 minutos
 
     console.log(`🟢 Contacto guardado como nuevo: ${nombre} - ${numero}`);
+
+    // Marca como guardado_google = true después de guardar
+    const conn3 = await getConnection();
+    await conn3.execute(
+      `UPDATE usuarios SET guardado_google = true WHERE phone LIKE ?`,
+      [`%${normalizarUltimos10(numero)}`]
+    );
+    await conn3.end();
   } catch (err) {
     console.error("❌ Error guardando contacto en Google:", err);
   }

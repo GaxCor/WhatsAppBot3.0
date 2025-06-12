@@ -203,12 +203,13 @@ export const guardarContactoEnGoogle = async (
   oauth2Client.setCredentials(tokens);
 
   const people = google.people({ version: "v1", auth: oauth2Client });
+  const numeroNormalizado = normalizarUltimos10(numero);
 
   try {
     await people.people.createContact({
       requestBody: {
         names: [{ givenName: nombre }],
-        phoneNumbers: [{ value: numero }],
+        phoneNumbers: [{ value: numeroNormalizado }],
       },
     });
 
@@ -229,7 +230,7 @@ export const existeNumeroEnContactos = async (
   numero: string
 ): Promise<boolean> => {
   const config = getFunctionConfig("guardarContactoEnGoogle");
-  console.log("Prueba");
+
   if (!config?.enabled) {
     console.log(
       "⚠️ Función 'existeNumeroEnContactos' deshabilitada por configuración (usa guardarContactoEnGoogle)."
@@ -269,26 +270,20 @@ export const existeNumeroEnContactos = async (
 
     const conexiones = res.data.connections || [];
 
-    const numeroNormalizado = numero.replace(/\D/g, "").slice(-10);
-    const coincidencias = [];
+    const numeroNormalizado = normalizarUltimos10(numero);
 
     for (const contacto of conexiones) {
       const telefonos = contacto.phoneNumbers || [];
       for (const tel of telefonos) {
-        const valor = tel.value?.replace(/\D/g, "").slice(-10);
-        if (valor === numeroNormalizado) {
+        const valor = tel.value?.replace(/\D/g, "");
+        const ultimos10 = valor?.slice(-10);
+
+        if (ultimos10 === numeroNormalizado) {
           const nombre = contacto.names?.[0]?.displayName || "(sin nombre)";
-          coincidencias.push({ nombre, telefono: tel.value });
+          console.log(`✅ Coincidencia encontrada: ${nombre} - ${tel.value}`);
+          return true;
         }
       }
-    }
-
-    if (coincidencias.length > 0) {
-      console.log(`✅ Se encontraron ${coincidencias.length} coincidencia(s):`);
-      coincidencias.forEach((c, i) => {
-        console.log(`→ [${i + 1}] ${c.nombre} - ${c.telefono}`);
-      });
-      return true;
     }
 
     return false;
@@ -296,4 +291,8 @@ export const existeNumeroEnContactos = async (
     console.error("❌ Error buscando número en contactos:", err);
     return false;
   }
+};
+
+export const normalizarUltimos10 = (numero: string): string => {
+  return numero.replace(/\D/g, "").slice(-10); // solo los últimos 10 dígitos numéricos
 };

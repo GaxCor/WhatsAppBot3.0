@@ -161,59 +161,120 @@ export const handleAuthGoogle = async (ctx: any, flowDynamic: any) => {
   ]);
 };
 
+/* --------------------------------------------------------------- */
+/*  MEMORIA TEMPORAL para evitar duplicados en la misma ejecución  */
+/* --------------------------------------------------------------- */
 const memoriaContactosGuardados = new Set<string>();
-/**
- * Guarda un contacto (nombre y número) en la cuenta de Google asociada al bot.
- * @param bot_id El ID del bot (normalmente el número de teléfono)
- * @param nombre Nombre del contacto
- * @param numero Número del contacto
- */
+
+/* --------------------------------------------------------------- */
+/*  NORMALIZA a los últimos 10 dígitos                             */
+/* --------------------------------------------------------------- */
+export const normalizarUltimos10 = (numero: string): string =>
+  numero.replace(/\D/g, "").slice(-10);
+
+/* --------------------------------------------------------------- */
+/*  VERIFICA en Google Contacts si el número existe                */
+/* --------------------------------------------------------------- */
+export const existeNumeroEnContactos = async (
+  bot_id: string,
+  numero: string
+): Promise<boolean> => {
+  if (!getFunctionConfig("guardarContactoEnGoogle")?.enabled) return false;
+
+  /* token OAuth del bot */
+  const connTok = await getConnection();
+  const [tokRows]: any = await connTok.execute(
+    `SELECT valor_var FROM Infobot WHERE nombre_var = ?`,
+    [`credenciales_google_${bot_id}`]
+  );
+  await connTok.end();
+  if (!tokRows.length) return false;
+
+  const tokens = JSON.parse(tokRows[0].valor_var);
+  const oauth2 = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+  oauth2.setCredentials(tokens);
+  const people = google.people({ version: "v1", auth: oauth2 });
+
+  const numero10 = normalizarUltimos10(numero);
+
+  try {
+    const res = await people.people.connections.list({
+      resourceName: "people/me",
+      personFields: "phoneNumbers",
+      pageSize: 1000,
+    });
+
+    for (const c of res.data.connections ?? []) {
+      for (const tel of c.phoneNumbers ?? []) {
+        if (normalizarUltimos10(tel.value ?? "") === numero10) return true;
+      }
+    }
+    return false;
+  } catch (err) {
+    console.error("❌ Error consultando Google:", err);
+    return false;
+  }
+};
+
+/* --------------------------------------------------------------- */
+/*  GUARDA contacto en Google solo si NO existe ni local NI Google */
+/* --------------------------------------------------------------- */
 export const guardarContactoEnGoogle = async (
   bot_id: string,
   nombre: string,
   numero: string
 ): Promise<void> => {
-  const config = getFunctionConfig("guardarContactoEnGoogle");
-  if (!config?.enabled) return;
+  if (!getFunctionConfig("guardarContactoEnGoogle")?.enabled) return;
 
-  const claveMemoria = `${bot_id}:${normalizarUltimos10(numero)}`;
-  if (memoriaContactosGuardados.has(claveMemoria)) {
-    console.log(
-      `🧠 Memoria: contacto ya guardado recientemente → ${claveMemoria}`
-    );
+  const clave = `${bot_id}:${normalizarUltimos10(numero)}`;
+  if (memoriaContactosGuardados.has(clave)) {
+    console.log("🧠 Memoria: ya se procesó recientemente", clave);
     return;
   }
 
-  const yaExiste = await existeNumeroEnContactos(bot_id, numero);
-
-  // Siempre intenta marcar la columna dependiendo de si ya existe
-  const conn1 = await getConnection();
-  await conn1.execute(
-    `UPDATE usuarios SET guardado_google = ? WHERE phone LIKE ?`,
-    [yaExiste, `%${normalizarUltimos10(numero)}`]
+  /* 1️⃣ Revisa columna guardado_google */
+  const connLocal = await getConnection();
+  const [usr]: any = await connLocal.execute(
+    `SELECT id, guardado_google FROM usuarios WHERE phone LIKE ? LIMIT 1`,
+    [`%${normalizarUltimos10(numero)}`]
   );
-  await conn1.end();
+  await connLocal.end();
 
-  if (yaExiste) return;
+  const idUsr = usr.length ? usr[0].id : null;
+  const marcadoLocal = usr.length && usr[0].guardado_google === 1;
 
-  const conn2 = await getConnection();
-  const [rows]: any = await conn2.execute(
+  /* 2️⃣ Revisa en Google */
+  const existeGoogle = await existeNumeroEnContactos(bot_id, numero);
+
+  /* 3️⃣ Sincroniza columna según resultado de Google */
+  if (idUsr) {
+    const connSync = await getConnection();
+    await connSync.execute(
+      `UPDATE usuarios SET guardado_google = ? WHERE id = ?`,
+      [existeGoogle ? 1 : 0, idUsr]
+    );
+    await connSync.end();
+  }
+
+  /* 4️⃣ Si existe ya sea local o Google → no guardar */
+  if (marcadoLocal || existeGoogle) {
+    console.log("🟡 Ya estaba guardado (local o Google):", numero);
+    return;
+  }
+
+  /* 5️⃣ Guardar en Google: */
+  const connTok = await getConnection();
+  const [tokRows]: any = await connTok.execute(
     `SELECT valor_var FROM Infobot WHERE nombre_var = ?`,
     [`credenciales_google_${bot_id}`]
   );
-  await conn2.end();
+  await connTok.end();
+  if (!tokRows.length) return;
 
-  if (!rows?.length) return;
-
-  const tokens = JSON.parse(rows[0].valor_var);
-  const oauth2Client = new google.auth.OAuth2(
-    CLIENT_ID,
-    CLIENT_SECRET,
-    REDIRECT_URI
-  );
-  oauth2Client.setCredentials(tokens);
-
-  const people = google.people({ version: "v1", auth: oauth2Client });
+  const tokens = JSON.parse(tokRows[0].valor_var);
+  const oauth2 = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+  oauth2.setCredentials(tokens);
+  const people = google.people({ version: "v1", auth: oauth2 });
 
   try {
     await people.people.createContact({
@@ -223,87 +284,21 @@ export const guardarContactoEnGoogle = async (
       },
     });
 
-    memoriaContactosGuardados.add(claveMemoria);
-    setTimeout(
-      () => memoriaContactosGuardados.delete(claveMemoria),
-      5 * 60 * 1000
-    ); // 5 minutos
-
-    console.log(`🟢 Contacto guardado como nuevo: ${nombre} - ${numero}`);
-
-    // Marca como guardado_google = true después de guardar
-    const conn3 = await getConnection();
-    await conn3.execute(
-      `UPDATE usuarios SET guardado_google = true WHERE phone LIKE ?`,
-      [`%${normalizarUltimos10(numero)}`]
-    );
-    await conn3.end();
-  } catch (err) {
-    console.error("❌ Error guardando contacto en Google:", err);
-  }
-};
-
-/**
- * Verifica si un número ya existe en los contactos de Google de un bot.
- * @param bot_id - ID del bot (normalmente es el número del propietario)
- * @param numero - Número a buscar (ej. "+5218112345678")
- * @returns booleano indicando si el número ya existe
- */
-export const existeNumeroEnContactos = async (
-  bot_id: string,
-  numero: string
-): Promise<boolean> => {
-  const config = getFunctionConfig("guardarContactoEnGoogle");
-  if (!config?.enabled) return false;
-
-  const conn = await getConnection();
-  const [rows]: any = await conn.execute(
-    `SELECT valor_var FROM Infobot WHERE nombre_var = ?`,
-    [`credenciales_google_${bot_id}`]
-  );
-  await conn.end();
-
-  if (!rows?.length) return false;
-
-  const tokens = JSON.parse(rows[0].valor_var);
-  const oauth2Client = new google.auth.OAuth2(
-    CLIENT_ID,
-    CLIENT_SECRET,
-    REDIRECT_URI
-  );
-  oauth2Client.setCredentials(tokens);
-
-  const peopleService = google.people({ version: "v1", auth: oauth2Client });
-
-  try {
-    const res = await peopleService.people.connections.list({
-      resourceName: "people/me",
-      personFields: "names,phoneNumbers",
-      pageSize: 1000,
-    });
-
-    const conexiones = res.data.connections || [];
-    const numeroBuscado = numero.replace(/\D/g, "").slice(-10);
-
-    for (const contacto of conexiones) {
-      const telefonos = contacto.phoneNumbers || [];
-      for (const tel of telefonos) {
-        const limpio = tel.value?.replace(/\D/g, "") ?? "";
-        const ultimos10 = limpio.slice(-10);
-        if (ultimos10 === numeroBuscado) {
-          console.log(`🟡 Ya existe el número: ${numero}`);
-          return true;
-        }
-      }
+    /* marca BD como guardado_google = 1 */
+    if (idUsr) {
+      const connUpd = await getConnection();
+      await connUpd.execute(
+        `UPDATE usuarios SET guardado_google = 1 WHERE id = ?`,
+        [idUsr]
+      );
+      await connUpd.end();
     }
 
-    return false;
-  } catch (err) {
-    console.error("❌ Error al buscar contactos:", err);
-    return false;
-  }
-};
+    memoriaContactosGuardados.add(clave);
+    setTimeout(() => memoriaContactosGuardados.delete(clave), 5 * 60 * 1000);
 
-export const normalizarUltimos10 = (numero: string): string => {
-  return numero.replace(/\D/g, "").slice(-10);
+    console.log(`✅ Contacto guardado en Google: ${nombre} - ${numero}`);
+  } catch (err) {
+    console.error("❌ Error guardando en Google:", err);
+  }
 };

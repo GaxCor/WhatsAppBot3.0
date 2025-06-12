@@ -173,13 +173,10 @@ export const guardarContactoEnGoogle = async (
   numero: string
 ): Promise<void> => {
   const config = getFunctionConfig("guardarContactoEnGoogle");
+  if (!config?.enabled) return;
 
-  if (!config?.enabled) {
-    console.log(
-      "⚠️ Función 'guardarContactoEnGoogle' deshabilitada por configuración."
-    );
-    return;
-  }
+  const yaExiste = await existeNumeroEnContactos(bot_id, numero);
+  if (yaExiste) return;
 
   const conn = await getConnection();
   const [rows]: any = await conn.execute(
@@ -188,13 +185,9 @@ export const guardarContactoEnGoogle = async (
   );
   await conn.end();
 
-  if (!rows || rows.length === 0) {
-    console.error(`❌ No se encontró token para el bot ${bot_id}`);
-    return;
-  }
+  if (!rows?.length) return;
 
   const tokens = JSON.parse(rows[0].valor_var);
-
   const oauth2Client = new google.auth.OAuth2(
     CLIENT_ID,
     CLIENT_SECRET,
@@ -203,17 +196,16 @@ export const guardarContactoEnGoogle = async (
   oauth2Client.setCredentials(tokens);
 
   const people = google.people({ version: "v1", auth: oauth2Client });
-  const numeroNormalizado = normalizarUltimos10(numero);
 
   try {
     await people.people.createContact({
       requestBody: {
         names: [{ givenName: nombre }],
-        phoneNumbers: [{ value: numeroNormalizado }],
+        phoneNumbers: [{ value: numero }],
       },
     });
 
-    console.log(`✅ Contacto guardado: ${nombre} - ${numero}`);
+    console.log(`🟢 Contacto guardado como nuevo: ${nombre} - ${numero}`);
   } catch (err) {
     console.error("❌ Error guardando contacto en Google:", err);
   }
@@ -230,13 +222,7 @@ export const existeNumeroEnContactos = async (
   numero: string
 ): Promise<boolean> => {
   const config = getFunctionConfig("guardarContactoEnGoogle");
-
-  if (!config?.enabled) {
-    console.log(
-      "⚠️ Función 'existeNumeroEnContactos' deshabilitada por configuración (usa guardarContactoEnGoogle)."
-    );
-    return false;
-  }
+  if (!config?.enabled) return false;
 
   const conn = await getConnection();
   const [rows]: any = await conn.execute(
@@ -245,13 +231,9 @@ export const existeNumeroEnContactos = async (
   );
   await conn.end();
 
-  if (!rows || rows.length === 0) {
-    console.error(`❌ No se encontró token para el bot ${bot_id}`);
-    return false;
-  }
+  if (!rows?.length) return false;
 
   const tokens = JSON.parse(rows[0].valor_var);
-
   const oauth2Client = new google.auth.OAuth2(
     CLIENT_ID,
     CLIENT_SECRET,
@@ -269,18 +251,15 @@ export const existeNumeroEnContactos = async (
     });
 
     const conexiones = res.data.connections || [];
-
-    const numeroNormalizado = normalizarUltimos10(numero);
+    const numeroBuscado = numero.replace(/\D/g, "").slice(-10);
 
     for (const contacto of conexiones) {
       const telefonos = contacto.phoneNumbers || [];
       for (const tel of telefonos) {
-        const valor = tel.value?.replace(/\D/g, "");
-        const ultimos10 = valor?.slice(-10);
-
-        if (ultimos10 === numeroNormalizado) {
-          const nombre = contacto.names?.[0]?.displayName || "(sin nombre)";
-          console.log(`✅ Coincidencia encontrada: ${nombre} - ${tel.value}`);
+        const limpio = tel.value?.replace(/\D/g, "") ?? "";
+        const ultimos10 = limpio.slice(-10);
+        if (ultimos10 === numeroBuscado) {
+          console.log(`🟡 Ya existe el número: ${numero}`);
           return true;
         }
       }
@@ -288,11 +267,11 @@ export const existeNumeroEnContactos = async (
 
     return false;
   } catch (err) {
-    console.error("❌ Error buscando número en contactos:", err);
+    console.error("❌ Error al buscar contactos:", err);
     return false;
   }
 };
 
 export const normalizarUltimos10 = (numero: string): string => {
-  return numero.replace(/\D/g, "").slice(-10); // solo los últimos 10 dígitos numéricos
+  return numero.replace(/\D/g, "").slice(-10);
 };

@@ -229,7 +229,7 @@ export const existeNumeroEnContactos = async (
   numero: string
 ): Promise<boolean> => {
   const config = getFunctionConfig("guardarContactoEnGoogle");
-
+  console.log("Prueba");
   if (!config?.enabled) {
     console.log(
       "⚠️ Función 'existeNumeroEnContactos' deshabilitada por configuración (usa guardarContactoEnGoogle)."

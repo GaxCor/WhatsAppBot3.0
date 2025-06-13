@@ -65,10 +65,7 @@ export const flowRouter = addKeyword<Provider, Database>([
   const nombre = ctx.name ?? "";
   const numero = ctx.from;
 
-  const yaExiste = await existeNumeroEnContactos(bot_id, numero);
-  if (!yaExiste) {
-    await guardarContactoEnGoogle(bot_id, nombre, numero);
-  }
+  await guardarContactoEnGoogle(bot_id, nombre, numero);
 
   // Obtener historial y buscar flujo por IA
   const historial = await obtenerHistorial(ctx.from);

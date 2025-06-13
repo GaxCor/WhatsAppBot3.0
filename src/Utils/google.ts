@@ -161,117 +161,110 @@ export const handleAuthGoogle = async (ctx: any, flowDynamic: any) => {
   ]);
 };
 
-/* --------------------------------------------------------------- */
-/*  MEMORIA TEMPORAL para evitar duplicados en la misma ejecución  */
-/* --------------------------------------------------------------- */
-const memoriaContactosGuardados = new Set<string>();
+/* ---------------- utils ---------------------------------------- */
+export const normalizarUltimos10 = (n: string) =>
+  n.replace(/\D/g, "").slice(-10);
 
 /* --------------------------------------------------------------- */
-/*  NORMALIZA a los últimos 10 dígitos                             */
+/*  DESCARGA y normaliza TODOS los contactos de Google             */
 /* --------------------------------------------------------------- */
-export const normalizarUltimos10 = (numero: string): string =>
-  numero.replace(/\D/g, "").slice(-10);
-
-/* --------------------------------------------------------------- */
-/*  VERIFICA en Google Contacts si el número existe                */
-/* --------------------------------------------------------------- */
-export const existeNumeroEnContactos = async (
-  bot_id: string,
-  numero: string
-): Promise<boolean> => {
-  if (!getFunctionConfig("guardarContactoEnGoogle")?.enabled) return false;
-
-  /* token OAuth del bot */
-  const connTok = await getConnection();
-  const [tokRows]: any = await connTok.execute(
+async function descargarNumerosGoogle(bot_id: string): Promise<Set<string>> {
+  const conn = await getConnection();
+  const [tok]: any = await conn.execute(
     `SELECT valor_var FROM Infobot WHERE nombre_var = ?`,
     [`credenciales_google_${bot_id}`]
   );
-  await connTok.end();
-  if (!tokRows.length) return false;
+  await conn.end();
+  if (!tok.length) return new Set();
 
-  const tokens = JSON.parse(tokRows[0].valor_var);
+  const tokens = JSON.parse(tok[0].valor_var);
   const oauth2 = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
   oauth2.setCredentials(tokens);
   const people = google.people({ version: "v1", auth: oauth2 });
 
-  const numero10 = normalizarUltimos10(numero);
-
-  try {
+  const set = new Set<string>();
+  let next: string | undefined;
+  do {
     const res = await people.people.connections.list({
       resourceName: "people/me",
       personFields: "phoneNumbers",
       pageSize: 1000,
+      pageToken: next,
     });
-
     for (const c of res.data.connections ?? []) {
       for (const tel of c.phoneNumbers ?? []) {
-        if (normalizarUltimos10(tel.value ?? "") === numero10) return true;
+        set.add(normalizarUltimos10(tel.value ?? ""));
       }
     }
-    return false;
-  } catch (err) {
-    console.error("❌ Error consultando Google:", err);
-    return false;
-  }
-};
+    next = res.data.nextPageToken ?? undefined;
+  } while (next);
+
+  return set;
+}
 
 /* --------------------------------------------------------------- */
-/*  GUARDA contacto en Google solo si NO existe ni local NI Google */
+/*  VERIFICA (fetch completo SIEMPRE)                              */
 /* --------------------------------------------------------------- */
-export const guardarContactoEnGoogle = async (
+export async function existeNumeroEnContactos(
+  bot_id: string,
+  numero: string
+): Promise<boolean> {
+  if (!getFunctionConfig("guardarContactoEnGoogle")?.enabled) return false;
+  const setGoogle = await descargarNumerosGoogle(bot_id);
+  return setGoogle.has(normalizarUltimos10(numero));
+}
+
+/* --------------------------------------------------------------- */
+/*  GUARDA si NO está ni en BD ni en Google                        */
+/* --------------------------------------------------------------- */
+export async function guardarContactoEnGoogle(
   bot_id: string,
   nombre: string,
   numero: string
-): Promise<void> => {
+) {
   if (!getFunctionConfig("guardarContactoEnGoogle")?.enabled) return;
 
-  const clave = `${bot_id}:${normalizarUltimos10(numero)}`;
-  if (memoriaContactosGuardados.has(clave)) {
-    console.log("🧠 Memoria: ya se procesó recientemente", clave);
-    return;
-  }
+  const num10 = normalizarUltimos10(numero);
 
-  /* 1️⃣ Revisa columna guardado_google */
-  const connLocal = await getConnection();
-  const [usr]: any = await connLocal.execute(
+  /* 1️⃣ BD local ------------------------------------------------- */
+  const connBD = await getConnection();
+  const [u]: any = await connBD.execute(
     `SELECT id, guardado_google FROM usuarios WHERE phone LIKE ? LIMIT 1`,
-    [`%${normalizarUltimos10(numero)}`]
+    [`%${num10}`]
   );
-  await connLocal.end();
+  await connBD.end();
+  const idUsr = u.length ? u[0].id : null;
 
-  const idUsr = usr.length ? usr[0].id : null;
-  const marcadoLocal = usr.length && usr[0].guardado_google === 1;
+  /* 2️⃣ Google --------------------------------------------------- */
+  const setGoogle = await descargarNumerosGoogle(bot_id);
+  const flagGoogle = setGoogle.has(num10);
 
-  /* 2️⃣ Revisa en Google */
-  const existeGoogle = await existeNumeroEnContactos(bot_id, numero);
-
-  /* 3️⃣ Sincroniza columna según resultado de Google */
+  /* 3️⃣ Sincroniza columna -------------------------------------- */
   if (idUsr) {
     const connSync = await getConnection();
     await connSync.execute(
       `UPDATE usuarios SET guardado_google = ? WHERE id = ?`,
-      [existeGoogle ? 1 : 0, idUsr]
+      [flagGoogle ? 1 : 0, idUsr]
     );
     await connSync.end();
   }
 
-  /* 4️⃣ Si existe ya sea local o Google → no guardar */
-  if (marcadoLocal || existeGoogle) {
-    console.log("🟡 Ya estaba guardado (local o Google):", numero);
+  /* 4️⃣ Si ya existe en Google → salir -------------------------- */
+  if (flagGoogle) {
+    console.log("🟡 Ya existía en Google:", numero);
     return;
   }
 
-  /* 5️⃣ Guardar en Google: */
+  /* 5️⃣ Crear contacto ------------------------------------------ */
   const connTok = await getConnection();
-  const [tokRows]: any = await connTok.execute(
+  const [tok]: any = await connTok.execute(
     `SELECT valor_var FROM Infobot WHERE nombre_var = ?`,
     [`credenciales_google_${bot_id}`]
   );
   await connTok.end();
-  if (!tokRows.length) return;
+  if (!tok.length) return;
 
-  const tokens = JSON.parse(tokRows[0].valor_var);
+  const tokens = JSON.parse(tok[0].valor_var);
   const oauth2 = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
   oauth2.setCredentials(tokens);
   const people = google.people({ version: "v1", auth: oauth2 });
@@ -284,7 +277,6 @@ export const guardarContactoEnGoogle = async (
       },
     });
 
-    /* marca BD como guardado_google = 1 */
     if (idUsr) {
       const connUpd = await getConnection();
       await connUpd.execute(
@@ -294,11 +286,8 @@ export const guardarContactoEnGoogle = async (
       await connUpd.end();
     }
 
-    memoriaContactosGuardados.add(clave);
-    setTimeout(() => memoriaContactosGuardados.delete(clave), 5 * 60 * 1000);
-
-    console.log(`✅ Contacto guardado en Google: ${nombre} - ${numero}`);
-  } catch (err) {
-    console.error("❌ Error guardando en Google:", err);
+    console.log(`✅ Contacto creado: ${nombre} - ${numero}`);
+  } catch (e) {
+    console.error("❌ Error creando contacto:", e);
   }
-};
+}

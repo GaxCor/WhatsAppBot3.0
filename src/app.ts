@@ -11,6 +11,7 @@ import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import {
   actualizarEstadoBot,
+  exportarChatCSV,
   guardarEnBaseDeDatos,
   mensajeBOT,
   verificarEstadoBot,
@@ -77,12 +78,35 @@ const activeFlow = addKeyword<Provider, Database>("/onoff").addAnswer(
   }
 );
 
+export const chatFlow = addKeyword<Provider, Database>("/chat", {
+  capture: true,
+}).addAction(async (ctx, { provider, flowDynamic }) => {
+  /* /chat → usa remitente | /chat 521XXXXXXXXXX → usa ese número */
+  const partes = ctx.body.trim().split(/\s+/);
+  const phoneArg = (partes[1] ?? ctx.from).replace(/[^\d]/g, "");
+  const filePath = await exportarChatCSV(phoneArg);
+
+  if (!filePath) {
+    await flowDynamic("❌ No encontré mensajes para ese contacto.");
+    return;
+  }
+
+  /* se lo enviamos al que lo pidió */
+  await provider.sendFile(
+    ctx.key.remoteJid,
+    filePath,
+    `📄 Chat de ${phoneArg}`
+  );
+  console.log(`📤 CSV enviado a ${ctx.from}: ${filePath}`);
+});
+
 const main = async () => {
   const adapterFlow = createFlow([
     flowRouter,
     masterFlow,
     contactoFlow,
     activeFlow,
+    chatFlow,
   ]);
 
   const adapterProvider = createProvider(Provider, { writeMyself: "both" });

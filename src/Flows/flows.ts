@@ -38,13 +38,13 @@ export const flowRouter = addKeyword<Provider, Database>([
     return;
   }
   const mensajeUsuario = ctx.body || "[contenido no textual]";
-
+  console.log(ctx);
   // Guardar mensaje del cliente en base de datos
   await guardarEnBaseDeDatos({
     phone: ctx.from,
     name: ctx.name,
     message: ctx.body,
-    source: "CLT",
+    source: ctx.key?.fromMe ? "WHA" : "CLT",
     messageId: ctx.id,
     timestamp: ctx.timestamp,
   });

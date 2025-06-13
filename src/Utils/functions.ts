@@ -1,6 +1,9 @@
 import { getConnection } from "~/db/mysql";
 import { getFunctionConfig } from "./configManager";
 import { toZonedTime } from "date-fns-tz";
+import fs from "fs";
+import path from "path";
+import os from "os";
 
 type Source = "BOT" | "CLT" | "WHA";
 
@@ -284,3 +287,42 @@ export const enviarPresenciaSiActiva = async (
     console.error("❌ Error al enviar presencia:", error);
   }
 };
+
+export async function exportarChatCSV(phone: string): Promise<string | null> {
+  /* 1. Lee historial ------------------------------------------------------ */
+  const conn = await getConnection();
+  const [rows]: any = await conn.execute(
+    `SELECT m.message, m.sender, m.date
+       FROM mensajes m
+       INNER JOIN usuarios u ON u.id = m.usuario_id
+      WHERE u.phone LIKE ?
+      ORDER BY m.date ASC`,
+    [`%${phone.replace(/\D/g, "").slice(-10)}`]
+  );
+  await conn.end();
+
+  if (!rows.length) return null;
+
+  /* 2. Crea CSV ----------------------------------------------------------- */
+  const encabezado = "fecha_iso,sender,mensaje";
+  const cuerpo = rows
+    .map((r: any) => {
+      const fecha = r.date;
+      const sender = r.sender;
+      const msg = String(r.message).replace(/"/g, '""');
+      return `"${fecha}","${sender}","${msg}"`;
+    })
+    .join("\n");
+
+  const csv = `${encabezado}\n${cuerpo}`;
+
+  /* 3. Carpeta temporal segura (cross-platform) -------------------------- */
+  const dirTmp = path.join(os.tmpdir(), "nacho_bot");
+  if (!fs.existsSync(dirTmp)) fs.mkdirSync(dirTmp, { recursive: true });
+
+  const fileName = `chat_${phone}_${Date.now()}.csv`;
+  const filePath = path.join(dirTmp, fileName);
+
+  fs.writeFileSync(filePath, csv, "utf8");
+  return filePath;
+}

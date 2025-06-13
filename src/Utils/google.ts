@@ -166,15 +166,35 @@ export const normalizarUltimos10 = (n: string) =>
   n.replace(/\D/g, "").slice(-10);
 
 /* --------------------------------------------------------------- */
-/*  DESCARGA y normaliza TODOS los contactos de Google             */
+/*  CACHÉ por bot  (libreta completa)                              */
 /* --------------------------------------------------------------- */
-async function descargarNumerosGoogle(bot_id: string): Promise<Set<string>> {
-  const conn = await getConnection();
-  const [tok]: any = await conn.execute(
+type CacheItem = { ts: number; numeros10: Set<string> };
+const cacheGoogle: Record<string, CacheItem> = {};
+const TTL_MIN = 15; //  ⬅️  cámbialo a tu gusto
+const TTL_MS = TTL_MIN * 60_000;
+
+/* --------------------------------------------------------------- */
+/*  DESCARGA la libreta o devuelve la de caché                     */
+/* --------------------------------------------------------------- */
+async function obtenerSetGoogle(bot_id: string): Promise<Set<string>> {
+  const now = Date.now();
+  const item = cacheGoogle[bot_id];
+
+  if (item && now - item.ts < TTL_MS) {
+    const faltan = Math.round((TTL_MS - (now - item.ts)) / 1000);
+    console.log(
+      `⏳ Caché Google => faltan ${faltan}s para refrescar (${bot_id})`
+    );
+    return item.numeros10; // hit de caché
+  }
+
+  /* ---------------- descarga completa ------------------------- */
+  const connTok = await getConnection();
+  const [tok]: any = await connTok.execute(
     `SELECT valor_var FROM Infobot WHERE nombre_var = ?`,
     [`credenciales_google_${bot_id}`]
   );
-  await conn.end();
+  await connTok.end();
   if (!tok.length) return new Set();
 
   const tokens = JSON.parse(tok[0].valor_var);
@@ -199,18 +219,22 @@ async function descargarNumerosGoogle(bot_id: string): Promise<Set<string>> {
     next = res.data.nextPageToken ?? undefined;
   } while (next);
 
+  cacheGoogle[bot_id] = { ts: now, numeros10: set };
+  console.log(
+    `🔄 Libreta Google actualizada (${bot_id}), contactos: ${set.size}`
+  );
   return set;
 }
 
 /* --------------------------------------------------------------- */
-/*  VERIFICA (fetch completo SIEMPRE)                              */
+/*  VERIFICA si el número existe (usa caché + TTL)                 */
 /* --------------------------------------------------------------- */
 export async function existeNumeroEnContactos(
   bot_id: string,
   numero: string
 ): Promise<boolean> {
   if (!getFunctionConfig("guardarContactoEnGoogle")?.enabled) return false;
-  const setGoogle = await descargarNumerosGoogle(bot_id);
+  const setGoogle = await obtenerSetGoogle(bot_id);
   return setGoogle.has(normalizarUltimos10(numero));
 }
 
@@ -235,11 +259,11 @@ export async function guardarContactoEnGoogle(
   await connBD.end();
   const idUsr = u.length ? u[0].id : null;
 
-  /* 2️⃣ Google --------------------------------------------------- */
-  const setGoogle = await descargarNumerosGoogle(bot_id);
+  /* 2️⃣ Google (con caché) -------------------------------------- */
+  const setGoogle = await obtenerSetGoogle(bot_id);
   const flagGoogle = setGoogle.has(num10);
 
-  /* 3️⃣ Sincroniza columna -------------------------------------- */
+  /* 3️⃣ Sincroniza columna guardado_google ---------------------- */
   if (idUsr) {
     const connSync = await getConnection();
     await connSync.execute(
@@ -276,6 +300,9 @@ export async function guardarContactoEnGoogle(
         phoneNumbers: [{ value: numero }],
       },
     });
+
+    /* añade al set en caché para que quede coherente */
+    setGoogle.add(num10);
 
     if (idUsr) {
       const connUpd = await getConnection();

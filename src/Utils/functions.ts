@@ -109,8 +109,34 @@ export const formatearMensajeBot = (mensajes: string | string[]): string[] => {
 
   const textoEtiqueta = config.texto ?? "> CHATBOT";
   const mensajesArray = Array.isArray(mensajes) ? mensajes : [mensajes];
+  const resultadoFinal: string[] = [];
 
-  return mensajesArray.map((msg) => `${msg}\n${textoEtiqueta}`);
+  for (const mensaje of mensajesArray) {
+    if (mensaje.length > 120 && mensaje.includes(". ")) {
+      const partes = mensaje.split(/(?<=\.)\s+/);
+      const ultimasPartes = partes.slice(0, -1).map((p) => p.trim());
+      const ultima = partes[partes.length - 1].trim() + `\n${textoEtiqueta}`;
+      resultadoFinal.push(...ultimasPartes, ultima);
+    } else {
+      resultadoFinal.push(`${mensaje}\n${textoEtiqueta}`);
+    }
+  }
+
+  return resultadoFinal;
+};
+
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+export const formatearMensajeBotConDelay = async (
+  mensajes: string | string[],
+  callback: (msg: string) => Promise<void>
+) => {
+  const mensajesFormateados = formatearMensajeBot(mensajes);
+  for (const msg of mensajesFormateados) {
+    await callback(msg);
+    const delay = Math.floor(Math.random() * 500) + 500;
+    await sleep(delay);
+  }
 };
 
 /**
@@ -127,10 +153,10 @@ export const mensajeBOT = async ({
   flowDynamic,
   mensaje,
 }: MensajeBOTParams) => {
+  if (ctx.key.fromMe) return;
   // 2. Guardar cada mensaje como mensaje de BOT
   const mensajesArray = Array.isArray(mensaje) ? mensaje : [mensaje];
-  const mensajesParaMostrar = formatearMensajeBot(mensajesArray);
-  await flowDynamic(mensajesParaMostrar);
+  await formatearMensajeBotConDelay(mensaje, flowDynamic);
 
   for (const msg of mensajesArray) {
     await guardarEnBaseDeDatos({

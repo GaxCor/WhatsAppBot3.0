@@ -78,27 +78,33 @@ const activeFlow = addKeyword<Provider, Database>("/onoff").addAnswer(
   }
 );
 
-export const chatFlow = addKeyword<Provider, Database>("/chat", {
-  capture: true,
-}).addAction(async (ctx, { provider, flowDynamic }) => {
-  /* /chat → usa remitente | /chat 521XXXXXXXXXX → usa ese número */
-  const partes = ctx.body.trim().split(/\s+/);
-  const phoneArg = (partes[1] ?? ctx.from).replace(/[^\d]/g, "");
-  const filePath = await exportarChatCSV(phoneArg);
+export const chatFlow = addKeyword<Provider, Database>(EVENTS.ACTION) // ← aquí SÓLO ACTION
+  .addAction(async (ctx, { provider, flowDynamic }) => {
+    /* ─── 1. Tomamos el número (si lo hubo) ─────────────────────────── */
+    const [, posibleNumero] = ctx.body.trim().split(/\s+/, 2); // “/chat” [num?]
+    const phone = (posibleNumero ?? ctx.from).replace(/[^\d]/g, ""); // deja sólo dígitos
 
-  if (!filePath) {
-    await flowDynamic("❌ No encontré mensajes para ese contacto.");
-    return;
-  }
+    /* ─── 2. Creamos CSV ────────────────────────────────────────────── */
+    const filePath = await exportarChatCSV(phone);
 
-  /* se lo enviamos al que lo pidió */
-  await provider.sendFile(
-    ctx.key.remoteJid,
-    filePath,
-    `📄 Chat de ${phoneArg}`
-  );
-  console.log(`📤 CSV enviado a ${ctx.from}: ${filePath}`);
-});
+    if (!filePath) {
+      await flowDynamic("❌ No encontré mensajes para ese contacto.");
+      return;
+    }
+
+    /* ─── 3. Enviamos archivo al chat donde se pidió ────────────────── */
+    try {
+      await provider.sendFile(
+        ctx.key.remoteJid, // a quien lo solicitó
+        filePath,
+        `📄 Chat de ${phone}`
+      );
+      console.log(`📤 CSV enviado a ${ctx.from}: ${filePath}`);
+    } catch (e) {
+      console.error("❌ Error enviando CSV:", e);
+      await flowDynamic("⚠️ No pude enviar el archivo. Vuelve a intentar.");
+    }
+  });
 
 const main = async () => {
   const adapterFlow = createFlow([

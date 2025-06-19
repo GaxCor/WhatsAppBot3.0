@@ -19,6 +19,7 @@ import {
   guardarContactoEnGoogle,
 } from "~/Utils/google";
 import { getFunctionConfig } from "~/Utils/configManager";
+import { chatFlow } from "~/app";
 
 const PHONE_OWNER = process.env.PHONE_OWNER!;
 
@@ -32,13 +33,18 @@ export const flowRouter = addKeyword<Provider, Database>([
   EVENTS.DOCUMENT,
   EVENTS.CALL,
 ]).addAction(async (ctx, { state, gotoFlow, flowDynamic, provider }) => {
+  const body = (ctx.body ?? "").trim();
+  if (body.toLowerCase().startsWith("/chat")) {
+    return gotoFlow(chatFlow); //  ⬅️  salto inmediato
+  }
+
   const config = getFunctionConfig("ChatbotIA");
   if (!config.enabled) {
     console.log("⛔️ Flujos apagados desde config.functions.json");
     return;
   }
   const mensajeUsuario = ctx.body || "[contenido no textual]";
-  console.log(ctx);
+  //console.log(ctx);
   // Guardar mensaje del cliente en base de datos
   await guardarEnBaseDeDatos({
     phone: ctx.from,

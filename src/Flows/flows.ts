@@ -62,7 +62,7 @@ export const flowRouter = addKeyword<Provider, Database>([
       });
       return;
     }
-    console.log(ctx);
+
     const mensajeUsuario = body || "[contenido no textual]";
 
     const activo = await verificarEstadoBot(ctx.from);

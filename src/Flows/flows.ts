@@ -23,7 +23,7 @@ import { chatFlow } from "~/app";
 import { createMessageQueue, QueueConfig } from "~/Utils/fastEntires";
 
 const PHONE_OWNER = process.env.PHONE_OWNER!;
-const queueConfig: QueueConfig = { gapMilliseconds: 3000 };
+const queueConfig: QueueConfig = { gapMilliseconds: 6000 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
 export const flowRouter = addKeyword<Provider, Database>([
@@ -62,7 +62,7 @@ export const flowRouter = addKeyword<Provider, Database>([
       });
       return;
     }
-
+    console.log(ctx);
     const mensajeUsuario = body || "[contenido no textual]";
 
     const activo = await verificarEstadoBot(ctx.from);

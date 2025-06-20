@@ -5,6 +5,7 @@ node_modules
 *tokens
 .wwebjs*
 credentials.json
+index.cjs
 *.log
 *qr.png
 de

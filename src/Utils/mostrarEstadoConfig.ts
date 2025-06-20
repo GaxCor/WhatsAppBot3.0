@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import chalk from "chalk";
 import { fileURLToPath } from "url";
+import { formatInTimeZone } from "date-fns-tz";
 
 // Simula __dirname en módulos ES
 const __filename = fileURLToPath(import.meta.url);
@@ -10,13 +11,15 @@ const __dirname = path.dirname(__filename);
 const rutaConfig = path.join(__dirname, "../config.functions.json");
 
 export const mostrarEstadoBot = () => {
-  const hora = new Date().toLocaleTimeString("es-MX", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  const zona = "America/Monterrey";
+  const horaFormateada = formatInTimeZone(new Date(), zona, "HH:mm:ss");
+  // const hora = new Date().toLocaleTimeString("es-MX", {
+  //   hour: "2-digit",
+  //   minute: "2-digit",
+  //   second: "2-digit",
+  // });
 
-  console.log(`\nReinicio del bot a las ${hora}\n`);
+  console.log(`\nReinicio del bot a las ${horaFormateada}\n`);
 
   if (!fs.existsSync(rutaConfig)) {
     console.log(

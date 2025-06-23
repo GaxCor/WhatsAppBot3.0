@@ -105,7 +105,7 @@ export async function guardarTokenEnDB(
 
   const conn = await getConnection();
   await conn.execute(
-    `REPLACE INTO Infobot (nombre_var, valor_var) VALUES (?, ?)`,
+    `REPLACE INTO infobot (nombre_var, valor_var) VALUES (?, ?)`,
     [`credenciales_google_${bot_id}`, JSON.stringify(tokens)]
   );
   await conn.end();
@@ -191,7 +191,7 @@ async function obtenerSetGoogle(bot_id: string): Promise<Set<string>> {
   /* ---------------- descarga completa ------------------------- */
   const connTok = await getConnection();
   const [tok]: any = await connTok.execute(
-    `SELECT valor_var FROM Infobot WHERE nombre_var = ?`,
+    `SELECT valor_var FROM infobot WHERE nombre_var = ?`,
     [`credenciales_google_${bot_id}`]
   );
   await connTok.end();
@@ -282,7 +282,7 @@ export async function guardarContactoEnGoogle(
   /* 5️⃣ Crear contacto ------------------------------------------ */
   const connTok = await getConnection();
   const [tok]: any = await connTok.execute(
-    `SELECT valor_var FROM Infobot WHERE nombre_var = ?`,
+    `SELECT valor_var FROM infobot WHERE nombre_var = ?`,
     [`credenciales_google_${bot_id}`]
   );
   await connTok.end();

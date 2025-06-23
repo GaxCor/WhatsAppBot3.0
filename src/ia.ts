@@ -121,16 +121,14 @@ export async function buscarFlujoDesdeIA(
   );
   const zona = "America/Monterrey";
   const ahora = new Date();
-  const fechaEnZona = new Date(
-    formatInTimeZone(ahora, zona, "yyyy-MM-dd'T'HH:mm:ssxxx")
-  );
 
-  const fechaHoraBonita = format(
-    fechaEnZona,
+  const fechaHoraBonita = formatInTimeZone(
+    ahora,
+    zona,
     "EEEE d 'de' MMMM 'de' yyyy 'a las' HH:mm:ss",
     { locale: es }
   );
-  console.log("🕒 Hora actual:", fechaHoraBonita);
+  console.log(`🕒 Hora actual: ${fechaHoraBonita}`);
   const systemPrompt = `
 Eres un asistente para WhatsApp.
 

@@ -2,6 +2,9 @@ import { getConnection } from "./db/mysql";
 import { OpenAI } from "openai";
 import type { BaileysProvider } from "@builderbot/provider-baileys";
 import { guardarEnBaseDeDatos, mensajeBOT } from "./Utils/functions";
+import { formatInTimeZone } from "date-fns-tz";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 const toJid = (num: string) => (num.includes("@") ? num : `${num}@c.us`);
 
@@ -116,19 +119,40 @@ export async function buscarFlujoDesdeIA(
   const [flujos] = await conn.query(
     "SELECT nombre, prompt FROM flujos WHERE activado = 1"
   );
+  const zona = "America/Monterrey";
+  const ahora = new Date();
+  const fechaEnZona = new Date(
+    formatInTimeZone(ahora, zona, "yyyy-MM-dd'T'HH:mm:ssxxx")
+  );
+
+  const fechaHoraBonita = format(
+    fechaEnZona,
+    "EEEE d 'de' MMMM 'de' yyyy 'a las' HH:mm:ss",
+    { locale: es }
+  );
 
   const systemPrompt = `
 Eres un asistente para WhatsApp.
+
 Tu tarea es:
 1. Analizar el mensaje del cliente.
 2. Elegir cuál de los siguientes flujos es más adecuado con base en el contexto y la descripción del flujo.
-3. Siempre generar una respuesta amable y útil.
+3. Generar una respuesta breve, clara y útil.
 
-Devuelve un JSON así:
+Instrucciones clave:
+- Solo responde lo necesario. No incluyas saludos, despedidas ni frases como "Estoy aquí para ayudarte", "No dudes en preguntar", etc.
+- La respuesta debe tener máximo 2 oraciones o 250 caracteres.
+- Si incluyes horarios, escríbelos en un solo bloque claro (ej: "Lunes a viernes de 8:30 a 18:30 h, sábados de 9:00 a 14:00 h").
+- No uses listas, saltos de línea ni viñetas. El mensaje debe ser una sola unidad continua de texto.
+- Recuerda que el mensaje se formatea antes de enviarse, así que evita frases largas o compuestas que puedan romperse mal.
+
+Devuelve un JSON con este formato:
 {
   "flujo_destino": "nombre_del_flujo" o vacío "",
-  "respuesta": "respuesta conversacional para el cliente"
+  "respuesta": "respuesta breve y útil para el cliente"
 }
+
+Hora actual: ${fechaHoraBonita}
 
 Flujos disponibles:
 ${(flujos as any[]).map((f) => `- ${f.nombre}: ${f.prompt}`).join("\n")}

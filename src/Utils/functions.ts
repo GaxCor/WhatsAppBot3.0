@@ -4,6 +4,7 @@ import { toZonedTime } from "date-fns-tz";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import * as XLSX from "xlsx";
 
 type Source = "BOT" | "CLT" | "WHA";
 
@@ -351,4 +352,49 @@ export async function exportarChatCSV(phone: string): Promise<string | null> {
 
   fs.writeFileSync(filePath, csv, "utf8");
   return filePath;
+}
+
+/**
+ * Exporta las tablas flujos, global_state, infobot y usuarios a un archivo Excel con múltiples hojas.
+ * @returns Ruta del archivo Excel generado
+ */
+export async function exportarTablasExcel(): Promise<string> {
+  const conn = await getConnection();
+
+  try {
+    // 1. Obtener los datos de las tablas
+    const [flujos] = await conn.execute("SELECT * FROM flujos");
+    const [globalState] = await conn.execute("SELECT * FROM global_state");
+    const [infobot] = await conn.execute("SELECT * FROM infobot");
+    const [usuarios] = await conn.execute("SELECT * FROM usuarios");
+
+    await conn.end();
+
+    // 2. Crear el libro de Excel
+    const workbook = XLSX.utils.book_new();
+
+    const agregarHoja = (nombre: string, datos: any[]) => {
+      const worksheet = XLSX.utils.json_to_sheet(datos);
+      XLSX.utils.book_append_sheet(workbook, worksheet, nombre);
+    };
+
+    agregarHoja("flujos", flujos as any[]);
+    agregarHoja("global_state", globalState as any[]);
+    agregarHoja("infobot", infobot as any[]);
+    agregarHoja("usuarios", usuarios as any[]);
+
+    // 3. Ruta del archivo
+    const tmpDir = path.join(os.tmpdir(), "nacho_bot");
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+    const filePath = path.join(tmpDir, `tablas_${Date.now()}.xlsx`);
+
+    // 4. Guardar archivo
+    XLSX.writeFile(workbook, filePath);
+
+    return filePath;
+  } catch (error) {
+    console.error("❌ Error exportando tablas a Excel:", error);
+    throw error;
+  }
 }

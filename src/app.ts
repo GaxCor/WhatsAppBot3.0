@@ -12,6 +12,7 @@ import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import {
   actualizarEstadoBot,
   exportarChatCSV,
+  exportarTablasExcel,
   guardarEnBaseDeDatos,
   mensajeBOT,
   verificarEstadoBot,
@@ -106,6 +107,25 @@ export const chatFlow = addKeyword<Provider, Database>(EVENTS.ACTION) // ← aqu
     }
   });
 
+export const tablasFlow = addKeyword<Provider, Database>("/datos").addAction(
+  async (ctx, { provider, flowDynamic }) => {
+    try {
+      const filePath = await exportarTablasExcel();
+
+      await provider.sendFile(
+        ctx.key.remoteJid,
+        filePath,
+        "📊 Tablas del sistema"
+      );
+
+      console.log(`✅ Excel enviado a ${ctx.from}: ${filePath}`);
+    } catch (error) {
+      console.error("❌ Error al generar/enviar archivo Excel:", error);
+      await flowDynamic("⚠️ No pude generar el archivo. Intenta más tarde.");
+    }
+  }
+);
+
 const main = async () => {
   const adapterFlow = createFlow([
     flowRouter,
@@ -113,6 +133,7 @@ const main = async () => {
     contactoFlow,
     activeFlow,
     chatFlow,
+    tablasFlow,
   ]);
 
   const adapterProvider = createProvider(Provider, { writeMyself: "both" });

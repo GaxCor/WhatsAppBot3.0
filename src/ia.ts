@@ -130,7 +130,7 @@ export async function buscarFlujoDesdeIA(
     "EEEE d 'de' MMMM 'de' yyyy 'a las' HH:mm:ss",
     { locale: es }
   );
-
+  console.log("🕒 Hora actual:", fechaHoraBonita);
   const systemPrompt = `
 Eres un asistente para WhatsApp.
 

@@ -118,7 +118,7 @@ export const tablasFlow = addKeyword<Provider, Database>("/datos").addAction(
         "📊 Tablas del sistema"
       );
 
-      console.log(`✅ Excel enviado a ${ctx.from}: ${filePath}`);
+      console.log(`✅ Excell enviado a ${ctx.from}: ${filePath}`);
     } catch (error) {
       console.error("❌ Error al generar/enviar archivo Excel:", error);
       await flowDynamic("⚠️ No pude generar el archivo. Intenta más tarde.");

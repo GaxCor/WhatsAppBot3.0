@@ -23,7 +23,8 @@ import { chatFlow } from "~/app";
 import { createMessageQueue, QueueConfig } from "~/Utils/fastEntires";
 
 const PHONE_OWNER = process.env.PHONE_OWNER!;
-const queueConfig: QueueConfig = { gapMilliseconds: 6000 };
+const SECONDS_TO_WAIT = Number(process.env.SECONDSTOWAIT) * 1000;
+const queueConfig: QueueConfig = { gapMilliseconds: SECONDS_TO_WAIT ?? 6000 };
 const enqueueMessage = createMessageQueue(queueConfig);
 
 export const flowRouter = addKeyword<Provider, Database>([

@@ -69,11 +69,6 @@ export const flowRouter = addKeyword<Provider, Database>([
 
     const activo = await verificarEstadoBot(ctx.from);
     if (!activo) {
-      await mensajeBOT({
-        ctx,
-        flowDynamic,
-        mensaje: "El servicio no está disponible en este momento.",
-      });
       return;
     }
 

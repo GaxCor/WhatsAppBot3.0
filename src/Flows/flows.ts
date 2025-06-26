@@ -45,6 +45,7 @@ export const flowRouter = addKeyword<Provider, Database>([
     messageId: ctx.id,
     timestamp: ctx.timestamp,
   });
+
   if (ctx.key?.fromMe) return;
   enqueueMessage(ctx, async (body) => {
     const { state, gotoFlow, flowDynamic, provider } = tools;

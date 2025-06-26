@@ -30,6 +30,8 @@ import fetch from "node-fetch";
 import dotenv from "dotenv";
 import { flowRouter, masterFlow } from "./Flows/flows";
 import { mostrarEstadoBot } from "./Utils/mostrarEstadoConfig";
+import { buscarFlujoDesdeIA } from "./ia";
+import { interpretarMensajeParaFlujo } from "./Utils/creadorFlujos";
 
 dotenv.config();
 
@@ -189,6 +191,65 @@ const main = async () => {
 
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ status: "ok", number, intent }));
+    })
+  );
+
+  adapterProvider.server.post(
+    "/v1/simular-chat",
+    handleCtx(async (_bot, req, res) => {
+      try {
+        const { mensaje } = req.body;
+
+        if (!mensaje || typeof mensaje !== "string") {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(
+            JSON.stringify({
+              error: "Se requiere el campo 'mensaje' como string.",
+            })
+          );
+        }
+
+        const resultado = await buscarFlujoDesdeIA(mensaje);
+        console.log("🔍 Resultado de IA:", resultado);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(resultado));
+      } catch (err) {
+        console.error("❌ Error simulando chat:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({ error: "Error al procesar el mensaje con la IA." })
+        );
+      }
+    })
+  );
+
+  adapterProvider.server.post(
+    "/v1/crear-flujo",
+    handleCtx(async (_bot, req, res): Promise<void> => {
+      try {
+        const { mensaje } = req.body;
+        const resultado = await interpretarMensajeParaFlujo(mensaje);
+
+        const responsePayload: any = {
+          finalizado: resultado.finalizado,
+          respuesta: resultado.respuesta, // ← usamos "respuesta" en lugar de "mensaje"
+        };
+
+        if (resultado.flujos) {
+          responsePayload.flujos = resultado.flujos;
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(responsePayload));
+      } catch (err) {
+        console.error("❌ Error interno en /v1/crear-flujo:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({
+            error: "Ocurrió un error interno al crear el flujo.",
+          })
+        );
+      }
     })
   );
 

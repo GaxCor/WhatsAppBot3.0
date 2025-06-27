@@ -1,4 +1,4 @@
-import { join } from "path";
+import path, { join } from "path";
 import {
   createBot,
   createProvider,
@@ -32,6 +32,7 @@ import { flowRouter, masterFlow } from "./Flows/flows";
 import { mostrarEstadoBot } from "./Utils/mostrarEstadoConfig";
 import { buscarFlujoDesdeIA } from "./ia";
 import { interpretarMensajeParaFlujo } from "./Utils/creadorFlujos";
+import fs from "fs";
 
 dotenv.config();
 
@@ -248,6 +249,32 @@ const main = async () => {
           JSON.stringify({
             error: "Ocurrió un error interno al crear el flujo.",
           })
+        );
+      }
+    })
+  );
+
+  adapterProvider.server.get(
+    "/v1/exportar-tablas",
+    handleCtx(async (_bot, _req, res) => {
+      try {
+        const filePath = await exportarTablasExcel();
+
+        res.writeHead(200, {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename=${path.basename(
+            filePath
+          )}`,
+        });
+
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+      } catch (err) {
+        console.error("❌ Error exportando tablas:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({ error: "No se pudo generar el archivo Excel" })
         );
       }
     })

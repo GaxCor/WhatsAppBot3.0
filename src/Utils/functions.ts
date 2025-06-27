@@ -367,6 +367,7 @@ export async function exportarTablasExcel(): Promise<string> {
     const [globalState] = await conn.execute("SELECT * FROM global_state");
     const [infobot] = await conn.execute("SELECT * FROM infobot");
     const [usuarios] = await conn.execute("SELECT * FROM usuarios");
+    const [mensajes] = await conn.execute("SELECT * FROM mensajes"); // 👈 nuevo
 
     await conn.end();
 
@@ -382,6 +383,7 @@ export async function exportarTablasExcel(): Promise<string> {
     agregarHoja("global_state", globalState as any[]);
     agregarHoja("infobot", infobot as any[]);
     agregarHoja("usuarios", usuarios as any[]);
+    agregarHoja("mensajes", mensajes as any[]); // 👈 nuevo
 
     // 3. Ruta del archivo
     const tmpDir = path.join(os.tmpdir(), "nacho_bot");

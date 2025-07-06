@@ -12,6 +12,7 @@ import {
   guardarEnBaseDeDatos,
   mensajeBOT,
   obtenerHistorial,
+  transcribirAudioDesdeMensaje,
   verificarEstadoBot,
 } from "~/Utils/functions";
 import {
@@ -21,6 +22,8 @@ import {
 import { getFunctionConfig } from "~/Utils/configManager";
 import { chatFlow } from "~/app";
 import { createMessageQueue, QueueConfig } from "~/Utils/fastEntires";
+import { formatInTimeZone } from "date-fns-tz";
+import { isAfter, isBefore, parse } from "date-fns";
 
 const PHONE_OWNER = process.env.PHONE_OWNER!;
 const SECONDS_TO_WAIT = Number(process.env.SECONDSTOWAIT) * 1000;
@@ -45,27 +48,48 @@ export const flowRouter = addKeyword<Provider, Database>([
     messageId: ctx.id,
     timestamp: ctx.timestamp,
   });
-
+  //console.log(ctx);
   if (ctx.key?.fromMe) return;
+
   enqueueMessage(ctx, async (body) => {
     const { state, gotoFlow, flowDynamic, provider } = tools;
 
     if (body.toLowerCase().startsWith("/chat")) {
       return gotoFlow(chatFlow);
     }
+    const zona = "America/Monterrey";
+    const ahoraStr = formatInTimeZone(new Date(), zona, "HH:mm");
+    //console.log(`⏰ Hora actual: ${ahoraStr} `);
 
     const config = getFunctionConfig("ChatbotIA");
     if (!config.enabled) {
       console.log("⛔️ Flujos apagados desde config.functions.json");
-      await mensajeBOT({
-        ctx,
-        flowDynamic,
-        mensaje: "El servicio no está disponible en este momento.",
-      });
       return;
     }
 
-    const mensajeUsuario = body || "[contenido no textual]";
+    // Validar franja horaria si está definida y no vacía
+    if (config.hora && config.hora.inicio?.trim() && config.hora.fin?.trim()) {
+      const ahora = parse(ahoraStr, "HH:mm", new Date());
+      const inicio = parse(config.hora.inicio, "HH:mm", new Date());
+      const fin = parse(config.hora.fin, "HH:mm", new Date());
+
+      if (isBefore(ahora, inicio) || isAfter(ahora, fin)) {
+        console.log(
+          `⛔️ ChatbotIA desactivado por horario: ${config.hora.inicio} a ${config.hora.fin}`
+        );
+        return;
+      }
+    }
+
+    let mensajeUsuario = body || "[contenido no textual]";
+
+    // Si es nota de voz, hacer transcripción
+    if (mensajeUsuario.includes("_event_voice_note")) {
+      const texto = await transcribirAudioDesdeMensaje(ctx, provider);
+      //console.log("Transcripción:", texto);
+      if (texto) mensajeUsuario = texto;
+    }
+    console.log("Mensaje del usuario:", mensajeUsuario);
 
     const activo = await verificarEstadoBot(ctx.from);
     if (!activo) {

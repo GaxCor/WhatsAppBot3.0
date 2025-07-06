@@ -1,5 +1,11 @@
 {
-  "ChatbotIA": true,
+  "ChatbotIA": {
+    "enabled": true,
+    "hora": {
+      "inicio": "",
+      "fin": "18:30"
+    }
+  },
   "guardarEnBaseDeDatos": true,
   "etiquetaChatbot": {
     "enabled": true,
@@ -13,5 +19,9 @@
   "presenciaIA": {
     "enabled": true,
     "tipo": "composing"
+  },
+  "CalendarioGoogle": {
+    "enabled": true,
+    "cantidad": 2
   }
 }

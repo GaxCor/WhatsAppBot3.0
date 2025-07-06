@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import * as XLSX from "xlsx";
+import OpenAI from "openai";
 
 type Source = "BOT" | "CLT" | "WHA";
 
@@ -399,4 +400,36 @@ export async function exportarTablasExcel(): Promise<string> {
     console.error("❌ Error exportando tablas a Excel:", error);
     throw error;
   }
+}
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+/**
+ * Guarda el audio del mensaje usando provider.saveFile y lo transcribe con Whisper.
+ * @param ctx - Contexto del mensaje que contiene el audio.
+ * @param provider - Objeto con función saveFile.
+ * @returns Transcripción del audio.
+ */
+export async function transcribirAudioDesdeMensaje(
+  ctx: any,
+  provider: any
+): Promise<string> {
+  const tmpDir = path.join(os.tmpdir(), "nacho_bot_audio");
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+  const filePath = await provider.saveFile(ctx, { path: tmpDir });
+
+  const transcription = await openai.audio.transcriptions.create({
+    file: fs.createReadStream(filePath),
+    model: "whisper-1",
+    response_format: "text",
+    language: "es",
+  });
+
+  // Eliminar el archivo temporal después de transcribir
+  fs.unlink(filePath, () => {});
+
+  return transcription;
 }

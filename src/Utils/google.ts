@@ -86,7 +86,14 @@ export const obtenerURLBot = async (): Promise<string | null> => {
  * Genera el link de autenticación de Google con el bot_id como state.
  */
 export const generarAuthLink = (bot_id: string): string => {
-  return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=https://www.googleapis.com/auth/contacts&access_type=offline&prompt=consent&state=${bot_id}`;
+  const scopes = [
+    "https://www.googleapis.com/auth/contacts",
+    "https://www.googleapis.com/auth/calendar", // 👈 añadido
+  ];
+
+  const scopeParam = encodeURIComponent(scopes.join(" "));
+
+  return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=${scopeParam}&access_type=offline&prompt=consent&state=${bot_id}`;
 };
 
 /**
@@ -115,19 +122,6 @@ export async function guardarTokenEnDB(
 
 export const handleAuthGoogle = async (ctx: any, flowDynamic: any) => {
   const phone = ctx.from;
-  const host = ctx.host;
-  const numeroNormalizadoPhone = phone.replace(/\D/g, "").slice(-10);
-  const numeroNormalizadoHost = host.replace(/\D/g, "").slice(-10);
-  // Validar que el usuario sea el mismo que el host
-  console.log(
-    `🔍 Validando autorización: phone=${numeroNormalizadoPhone}, host=${numeroNormalizadoHost}`
-  );
-  if (numeroNormalizadoPhone !== numeroNormalizadoHost) {
-    await flowDynamic(
-      "❌ Este comando solo está disponible para el dueño del bot."
-    );
-    return;
-  }
 
   await registrarInstancia(phone);
 
@@ -316,5 +310,66 @@ export async function guardarContactoEnGoogle(
     console.log(`✅ Contacto creado: ${nombre} - ${numero}`);
   } catch (e) {
     console.error("❌ Error creando contacto:", e);
+  }
+}
+
+/**
+ * Agenda una cita en el Google Calendar del bot autenticado.
+ * @param bot_id ID único del bot.
+ * @param resumen Título del evento.
+ * @param descripcion Descripción del evento.
+ * @param fechaInicio ISO string con la fecha de inicio (ej. "2025-07-05T10:00:00-06:00").
+ * @param fechaFin ISO string con la fecha de fin (ej. "2025-07-05T10:30:00-06:00").
+ */
+export async function agendarCitaEnGoogleCalendar(
+  bot_id: string,
+  resumen: string,
+  descripcion: string,
+  fechaInicio: string,
+  fechaFin: string
+): Promise<void> {
+  try {
+    // Obtener tokens de la base de datos
+    const conn = await getConnection();
+    const [tok]: any = await conn.execute(
+      `SELECT valor_var FROM infobot WHERE nombre_var = ?`,
+      [`credenciales_google_${bot_id}`]
+    );
+    await conn.end();
+    if (!tok.length) {
+      console.warn("⚠️ No hay credenciales guardadas para el bot:", bot_id);
+      return;
+    }
+
+    const tokens = JSON.parse(tok[0].valor_var);
+    const oauth2 = new google.auth.OAuth2(
+      CLIENT_ID,
+      CLIENT_SECRET,
+      REDIRECT_URI
+    );
+    oauth2.setCredentials(tokens);
+
+    const calendar = google.calendar({ version: "v3", auth: oauth2 });
+
+    // Crear el evento
+    const res = await calendar.events.insert({
+      calendarId: "primary",
+      requestBody: {
+        summary: resumen,
+        description: descripcion,
+        start: {
+          dateTime: fechaInicio,
+          timeZone: "America/Monterrey",
+        },
+        end: {
+          dateTime: fechaFin,
+          timeZone: "America/Monterrey",
+        },
+      },
+    });
+
+    console.log("📅 Evento agendado exitosamente:", res.data.htmlLink);
+  } catch (e) {
+    console.error("❌ Error al agendar cita en Google Calendar:", e);
   }
 }

@@ -18,6 +18,7 @@ import {
   verificarEstadoBot,
 } from "./Utils/functions";
 import {
+  agendarCitaEnGoogleCalendar,
   existeNumeroEnContactos,
   generarAuthLink,
   guardarContactoEnGoogle,
@@ -42,7 +43,33 @@ const LOCAL_API_URL = `http://localhost:${PORT}/v1/messages`;
 
 const contactoFlow = addKeyword<Provider, Database>("/authgoogle").addAction(
   async (ctx, { flowDynamic, provider }) => {
-    await handleAuthGoogle(ctx, flowDynamic);
+    const phone = ctx.from;
+    const host = ctx.host;
+    const numeroNormalizadoPhone = phone.replace(/\D/g, "").slice(-10);
+    const numeroNormalizadoHost = host.replace(/\D/g, "").slice(-10);
+    // Validar que el usuario sea el mismo que el host
+    console.log(
+      `🔍 Validando autorización: phone=${numeroNormalizadoPhone}, host=${numeroNormalizadoHost}`
+    );
+    if (numeroNormalizadoPhone == numeroNormalizadoHost) {
+      await handleAuthGoogle(ctx, flowDynamic);
+    } else {
+      await flowDynamic(
+        "❌ Este comando solo está disponible para el dueño del bot."
+      );
+    }
+  }
+);
+
+const pruebaFlow = addKeyword<Provider, Database>("/prueba").addAction(
+  async (ctx, { flowDynamic, provider }) => {
+    await agendarCitaEnGoogleCalendar(
+      "8123456789",
+      "Cita de servicio",
+      "Revisión general del vehículo",
+      "2025-07-05T10:00:00-06:00",
+      "2025-07-05T10:30:00-06:00"
+    );
   }
 );
 

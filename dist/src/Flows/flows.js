@@ -1,10 +1,10 @@
 import { addKeyword, EVENTS } from "@builderbot/bot";
-import { buscarFlujoDesdeIA, ejecutarFlujo, getFlujo, getFlujosDisponibles, interpretarAccionCalendario, } from "~/ia";
-import { enviarPresenciaSiActiva, guardarEnBaseDeDatos, mensajeBOT, obtenerHistorial, transcribirAudioDesdeMensaje, verificarEstadoBot, } from "~/Utils/functions";
-import { agendarCitaEnGoogleCalendar, eliminarCitaPorEventId, guardarContactoEnGoogle, } from "~/Utils/google";
-import { getFunctionConfig } from "~/Utils/configManager";
-import { chatFlow } from "~/app";
-import { createMessageQueue } from "~/Utils/fastEntires";
+import { buscarFlujoDesdeIA, ejecutarFlujo, getFlujo, getFlujosDisponibles, interpretarAccionCalendario, } from "../ia.js";
+import { enviarPresenciaSiActiva, guardarEnBaseDeDatos, mensajeBOT, obtenerHistorial, transcribirAudioDesdeMensaje, verificarEstadoBot, } from "../Utils/functions.js";
+import { agendarCitaEnGoogleCalendar, eliminarCitaPorEventId, guardarContactoEnGoogle, } from "../Utils/google.js";
+import { getFunctionConfig } from "../Utils/configManager.js";
+import { chatFlow } from "../app.js";
+import { createMessageQueue } from "../Utils/fastEntires.js";
 import { formatInTimeZone } from "date-fns-tz";
 import { isAfter, isBefore, parse } from "date-fns";
 const PHONE_OWNER = process.env.PHONE_OWNER;

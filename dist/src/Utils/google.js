@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 import fetch from "node-fetch";
-import { getConnection } from "~/db/mysql";
+import { getConnection } from "../db/mysql.js";
 import { google } from "googleapis";
-import { getFunctionConfig } from "~/Utils/configManager";
+import { getFunctionConfig } from "./configManager.js";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";

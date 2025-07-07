@@ -1,0 +1,28 @@
+{
+  "ChatbotIA": {
+    "enabled": true,
+    "hora": {
+      "inicio": "",
+      "fin": ""
+    }
+  },
+  "guardarEnBaseDeDatos": true,
+  "etiquetaChatbot": {
+    "enabled": true,
+    "texto": "> CHATBOT"
+  },
+  "guardarContactoEnGoogle": true,
+  "historialIA": {
+    "enabled": true,
+    "cantidad": 5
+  },
+  "presenciaIA": {
+    "enabled": true,
+    "tipo": "composing"
+  },
+  "CalendarioGoogle": {
+    "enabled": true,
+    "cantidad": 2,
+    "horario": "Lunes a Viernes de 8:30 a 18:30 y Sábados de 9:00 a 14:00"
+  }
+}

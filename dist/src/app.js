@@ -27,9 +27,9 @@ const contactoFlow = addKeyword("/authgoogle").addAction(async (ctx, { flowDynam
         await flowDynamic("❌ Este comando solo está disponible para el dueño del bot.");
     }
 });
-const pruebaFlow = addKeyword("/prueba").addAction(async (ctx, { flowDynamic }) => {
-    console.log("💥 Forzando error para pruebas...");
-    throw new Error("Error intencional para probar caída del bot");
+const pruebaFlow = addKeyword("/prueba").addAction(async () => {
+    console.log("💥 Terminando proceso con código 1...");
+    process.exit(1);
 });
 const activeFlow = addKeyword("/onoff").addAnswer([
     "🔧 *Configuración del bot*",

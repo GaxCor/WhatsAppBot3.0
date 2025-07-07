@@ -62,9 +62,9 @@ const contactoFlow = addKeyword<Provider, Database>("/authgoogle").addAction(
 );
 
 const pruebaFlow = addKeyword<Provider, Database>("/prueba").addAction(
-  async (ctx, { flowDynamic }) => {
-    console.log("💥 Forzando error para pruebas...");
-    throw new Error("Error intencional para probar caída del bot");
+  async () => {
+    console.log("💥 Terminando proceso con código 1...");
+    process.exit(1); // ⛔ esto sí mata el proceso
   }
 );
 

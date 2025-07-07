@@ -4,6 +4,7 @@ import {
   ejecutarFlujo,
   getFlujo,
   getFlujosDisponibles,
+  interpretarAccionCalendario,
 } from "~/ia";
 import type { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import type { MemoryDB as Database } from "@builderbot/bot";
@@ -16,7 +17,8 @@ import {
   verificarEstadoBot,
 } from "~/Utils/functions";
 import {
-  existeNumeroEnContactos,
+  agendarCitaEnGoogleCalendar,
+  eliminarCitaPorEventId,
   guardarContactoEnGoogle,
 } from "~/Utils/google";
 import { getFunctionConfig } from "~/Utils/configManager";
@@ -56,6 +58,9 @@ export const flowRouter = addKeyword<Provider, Database>([
 
     if (body.toLowerCase().startsWith("/chat")) {
       return gotoFlow(chatFlow);
+    }
+    if (body.toLowerCase().startsWith("/cita")) {
+      return gotoFlow(agendarCita);
     }
     const zona = "America/Monterrey";
     const ahoraStr = formatInTimeZone(new Date(), zona, "HH:mm");
@@ -109,6 +114,10 @@ export const flowRouter = addKeyword<Provider, Database>([
     );
 
     if (resultado?.flujo_destino) {
+      if (resultado.flujo_destino === "agendar_cita") {
+        return gotoFlow(agendarCita);
+      }
+
       const flujo = await getFlujo(resultado.flujo_destino);
       if (!flujo) {
         const flujos = await getFlujosDisponibles();
@@ -166,5 +175,61 @@ export const masterFlow = addKeyword<Provider, Database>(
     respuestaIA,
     provider,
     flowDynamic,
+  });
+});
+
+export const agendarCita = addKeyword<Provider, Database>(
+  EVENTS.ACTION
+).addAction(async (ctx, { state, provider, flowDynamic }) => {
+  const mensajeUsuario = ctx.body || "";
+  const bot_id = String(ctx.host ?? PHONE_OWNER);
+  const historial = await obtenerHistorial(ctx.from);
+  const resultado = await interpretarAccionCalendario(
+    bot_id,
+    `${historial.join("\n")}\nCliente: ${mensajeUsuario}`
+  );
+
+  if (resultado.funcion === "agregar") {
+    await agendarCitaEnGoogleCalendar(
+      bot_id,
+      resultado.resumen,
+      `${resultado.descripcion}\nNúmero: ${ctx.from}`,
+      resultado.fechaInicio,
+      resultado.fechaFin
+    );
+
+    await mensajeBOT({
+      ctx,
+      flowDynamic,
+      mensaje: `✅ Cita agendada para *${
+        resultado.resumen
+      }* el día *${formatInTimeZone(
+        new Date(resultado.fechaInicio),
+        "America/Monterrey",
+        "dd/MM/yyyy 'a las' HH:mm"
+      )}*.`,
+    });
+    return;
+  }
+
+  if (resultado.funcion === "eliminar") {
+    const ok = await eliminarCitaPorEventId(bot_id, resultado.eventId);
+
+    await mensajeBOT({
+      ctx,
+      flowDynamic,
+      mensaje: ok
+        ? "✅ Tu cita ha sido cancelada exitosamente."
+        : "❌ Hubo un problema al eliminar la cita. Asegúrate de que exista.",
+    });
+    return;
+  }
+
+  await mensajeBOT({
+    ctx,
+    flowDynamic,
+    mensaje:
+      resultado.mensaje ??
+      "❌ No logré entender si deseas agendar o cancelar una cita.",
   });
 });

@@ -29,7 +29,7 @@ import {
 } from "./Utils/google";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
-import { flowRouter, masterFlow } from "./Flows/flows";
+import { agendarCita, flowRouter, masterFlow } from "./Flows/flows";
 import { mostrarEstadoBot } from "./Utils/mostrarEstadoConfig";
 import { buscarFlujoDesdeIA } from "./ia";
 import { interpretarMensajeParaFlujo } from "./Utils/creadorFlujos";
@@ -62,14 +62,9 @@ const contactoFlow = addKeyword<Provider, Database>("/authgoogle").addAction(
 );
 
 const pruebaFlow = addKeyword<Provider, Database>("/prueba").addAction(
-  async (ctx, { flowDynamic, provider }) => {
-    await agendarCitaEnGoogleCalendar(
-      "8123456789",
-      "Cita de servicio",
-      "Revisión general del vehículo",
-      "2025-07-05T10:00:00-06:00",
-      "2025-07-05T10:30:00-06:00"
-    );
+  async (ctx, { flowDynamic }) => {
+    console.log("💥 Forzando error para pruebas...");
+    throw new Error("Error intencional para probar caída del bot");
   }
 );
 
@@ -164,6 +159,8 @@ const main = async () => {
     activeFlow,
     chatFlow,
     tablasFlow,
+    agendarCita,
+    pruebaFlow,
   ]);
 
   const adapterProvider = createProvider(Provider, { writeMyself: "both" });

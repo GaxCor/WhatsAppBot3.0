@@ -1,11 +1,13 @@
 import dotenv from "dotenv";
 import fetch from "node-fetch";
 import { getConnection } from "~/db/mysql";
-import { google } from "googleapis";
+import { google, calendar_v3 } from "googleapis";
 import { getFunctionConfig } from "~/Utils/configManager";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { endOfMonth, parseISO, startOfMonth } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 dotenv.config();
 
@@ -371,5 +373,116 @@ export async function agendarCitaEnGoogleCalendar(
     console.log("📅 Evento agendado exitosamente:", res.data.htmlLink);
   } catch (e) {
     console.error("❌ Error al agendar cita en Google Calendar:", e);
+  }
+}
+
+export async function obtenerTodasLasFechasDeCitas(
+  bot_id: any
+): Promise<
+  { resumen: string; fechaInicio: string; fechaFin: string; eventId: string }[]
+> {
+  try {
+    const conn = await getConnection();
+    const [tok]: any = await conn.execute(
+      `SELECT valor_var FROM infobot WHERE nombre_var = ?`,
+      [`credenciales_google_${bot_id}`]
+    );
+    await conn.end();
+    if (!tok.length) {
+      console.warn("⚠️ No hay credenciales guardadas para el bot:", bot_id);
+      return [];
+    }
+
+    const tokens = JSON.parse(tok[0].valor_var);
+    const oauth2 = new google.auth.OAuth2(
+      CLIENT_ID,
+      CLIENT_SECRET,
+      REDIRECT_URI
+    );
+    oauth2.setCredentials(tokens);
+
+    const calendar = google.calendar({ version: "v3", auth: oauth2 });
+
+    const eventos: {
+      resumen: string;
+      fechaInicio: string;
+      fechaFin: string;
+      eventId: string;
+    }[] = [];
+
+    let nextPageToken: string | undefined = undefined;
+
+    do {
+      const res = await calendar.events.list({
+        calendarId: "primary",
+        timeMin: new Date(2000, 0, 1).toISOString(), // desde año 2000
+        maxResults: 2500,
+        singleEvents: true,
+        orderBy: "startTime",
+        pageToken: nextPageToken,
+      });
+
+      const items = res.data.items ?? [];
+
+      items.forEach((evento) => {
+        eventos.push({
+          resumen: evento.summary ?? "(sin título)",
+          fechaInicio: evento.start?.dateTime ?? evento.start?.date ?? "",
+          fechaFin: evento.end?.dateTime ?? evento.end?.date ?? "",
+          eventId: evento.id ?? "",
+        });
+      });
+
+      nextPageToken = res.data.nextPageToken ?? undefined;
+    } while (nextPageToken);
+
+    console.log(`📅 ${eventos.length} eventos encontrados en total.`);
+    return eventos;
+  } catch (e) {
+    console.error("❌ Error al obtener todas las fechas de citas:", e);
+    return [];
+  }
+}
+
+export async function eliminarCitaPorEventId(
+  bot_id: any,
+  eventId: string
+): Promise<boolean> {
+  try {
+    const conn = await getConnection();
+    const [tok]: any = await conn.execute(
+      `SELECT valor_var FROM infobot WHERE nombre_var = ?`,
+      [`credenciales_google_${bot_id}`]
+    );
+    await conn.end();
+    if (!tok.length) {
+      console.warn("⚠️ No hay credenciales guardadas para el bot:", bot_id);
+      return false;
+    }
+
+    const tokens = JSON.parse(tok[0].valor_var);
+    const oauth2 = new google.auth.OAuth2(
+      CLIENT_ID,
+      CLIENT_SECRET,
+      REDIRECT_URI
+    );
+    oauth2.setCredentials(tokens);
+
+    const calendar = google.calendar({ version: "v3", auth: oauth2 });
+
+    await calendar.events.delete({
+      calendarId: "primary",
+      eventId,
+    });
+
+    console.log(`🗑️ Evento eliminado correctamente (${eventId})`);
+    return true;
+  } catch (e: any) {
+    if (e?.code === 404) {
+      console.log("❌ No se encontró la cita con ese eventId");
+    } else {
+      console.error("❌ Error al eliminar evento en Google Calendar:", e);
+    }
+    return false;
   }
 }

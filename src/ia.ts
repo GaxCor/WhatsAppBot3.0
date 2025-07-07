@@ -5,6 +5,8 @@ import { guardarEnBaseDeDatos, mensajeBOT } from "./Utils/functions";
 import { formatInTimeZone } from "date-fns-tz";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { getFunctionConfig } from "./Utils/configManager";
+import { obtenerTodasLasFechasDeCitas } from "./Utils/google";
 
 const toJid = (num: string) => (num.includes("@") ? num : `${num}@c.us`);
 
@@ -182,4 +184,152 @@ ${(flujos as any[]).map((f) => `- ${f.nombre}: ${f.prompt}`).join("\n")}
       respuesta: "Lo siento, no entendí tu mensaje. ¿Podrías reformularlo?",
     };
   }
+}
+
+export async function interpretarAccionCalendario(
+  bot_id: string,
+  mensaje: string
+): Promise<
+  | {
+      funcion: "agregar";
+      resumen: string;
+      descripcion: string;
+      fechaInicio: string;
+      fechaFin: string;
+    }
+  | {
+      funcion: "eliminar";
+      eventId: string;
+    }
+  | {
+      funcion: "ninguna";
+      mensaje: string;
+    }
+> {
+  const config = getFunctionConfig("CalendarioGoogle");
+  if (!config?.cantidad) {
+    return {
+      funcion: "ninguna",
+      mensaje: "No está configurada la función CalendarioGoogle.",
+    };
+  }
+
+  const zona = "America/Monterrey";
+  const ahora = new Date();
+  const fechaHoraBonita = formatInTimeZone(
+    ahora,
+    zona,
+    "EEEE d 'de' MMMM 'de' yyyy 'a las' HH:mm:ss",
+    { locale: es }
+  );
+
+  const eventos = await obtenerTodasLasFechasDeCitas(bot_id);
+  const eventosTexto = eventos
+    .map(
+      (ev) =>
+        `- ID: ${ev.eventId}, Resumen: ${ev.resumen}, Fecha: ${formatInTimeZone(
+          new Date(ev.fechaInicio),
+          zona,
+          "EEEE d 'de' MMMM yyyy, HH:mm",
+          { locale: es }
+        )}`
+    )
+    .join("\n");
+
+  const prompt = `
+Eres un asistente para gestionar citas. Tu tarea es interpretar si el usuario quiere AGENDAR o CANCELAR una cita.
+
+Hora actual: ${fechaHoraBonita}
+Horario del negocio: ${config.horario}
+
+Si el usuario quiere agendar una cita (sinónimos: agendar, registrar, programar, hacer), responde así:
+{
+  "funcion": "agregar",
+  "resumen": "...",
+  "descripcion": "...",
+  "fechaInicio": "YYYY-MM-DDTHH:mm:ss-06:00",
+  "fechaFin": "YYYY-MM-DDTHH:mm:ss-06:00"
+}
+
+- Si el mensaje es para CANCELAR una cita y contiene la información mínima (fecha y descripción), responde así:
+{
+  "funcion": "eliminar",
+  "eventId": "abc123"
+}
+
+
+Si no hay coincidencia clara, responde con:
+{
+  "funcion": "ninguna",
+  "mensaje": "No se encontró la cita que deseas cancelar."
+}
+
+Eventos disponibles:
+${eventosTexto}
+
+Texto del usuario:
+"""${mensaje}"""
+`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4.1",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.3,
+  });
+
+  let respuestaIA: any = {};
+  try {
+    respuestaIA = JSON.parse(completion.choices[0].message.content ?? "{}");
+  } catch (e) {
+    return {
+      funcion: "ninguna",
+      mensaje: "No se pudo interpretar el mensaje.",
+    };
+  }
+
+  // Paso 2: Procesar resultado
+  if (respuestaIA.funcion === "eliminar") {
+    const evento = eventos.find((ev) => ev.eventId === respuestaIA.eventId);
+    if (!evento) {
+      return {
+        funcion: "ninguna",
+        mensaje: "No se encontró la cita que deseas cancelar.",
+      };
+    }
+
+    return {
+      funcion: "eliminar",
+      eventId: evento.eventId,
+    };
+  }
+
+  if (respuestaIA.funcion === "agregar") {
+    const inicioNueva = new Date(respuestaIA.fechaInicio);
+    const finNueva = new Date(respuestaIA.fechaFin);
+    const empalmes = eventos.filter((ev) => {
+      const inicioEv = new Date(ev.fechaInicio);
+      const finEv = new Date(ev.fechaFin);
+      return inicioNueva < finEv && finNueva > inicioEv;
+    });
+
+    if (empalmes.length >= config.cantidad) {
+      return {
+        funcion: "ninguna",
+        mensaje: `⚠️ Ya hay ${empalmes.length} citas en ese horario. El máximo permitido es ${config.cantidad}.`,
+      };
+    }
+
+    return {
+      funcion: "agregar",
+      resumen: respuestaIA.resumen,
+      descripcion: respuestaIA.descripcion,
+      fechaInicio: respuestaIA.fechaInicio,
+      fechaFin: respuestaIA.fechaFin,
+    };
+  }
+
+  return {
+    funcion: "ninguna",
+    mensaje: respuestaIA.mensaje || "No se pudo determinar la intención.",
+  };
 }

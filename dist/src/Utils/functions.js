@@ -1,5 +1,5 @@
 import { getConnection } from "~/db/mysql";
-import { getFunctionConfig } from "./configManager";
+import { getFunctionConfig } from "./configManager.js";
 import { toZonedTime } from "date-fns-tz";
 import fs from "fs";
 import path from "path";

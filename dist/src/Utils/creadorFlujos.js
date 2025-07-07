@@ -1,5 +1,5 @@
 import { OpenAI } from "openai";
-import { globalState } from "./globalStateFlujos";
+import { globalState } from "./globalStateFlujos.js";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const MODEL = "gpt-4.1";
 const MAX_HISTORIAL = 20;

@@ -1,10 +1,10 @@
-import { getConnection } from "./db/mysql";
+import { getConnection } from "./db/mysql.js";
 import { OpenAI } from "openai";
-import { guardarEnBaseDeDatos, mensajeBOT } from "./Utils/functions";
+import { guardarEnBaseDeDatos, mensajeBOT } from "./Utils/functions.js";
 import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
-import { getFunctionConfig } from "./Utils/configManager";
-import { obtenerTodasLasFechasDeCitas } from "./Utils/google";
+import { getFunctionConfig } from "./Utils/configManager.js";
+import { obtenerTodasLasFechasDeCitas } from "./Utils/google.js";
 const toJid = (num) => (num.includes("@") ? num : `${num}@c.us`);
 export async function getFlujosDisponibles() {
     const conn = await getConnection();

@@ -5,6 +5,7 @@ node_modules
 .wwebjs*
 credentials.json
 index.cjs
+fix-imports-dist.js
 *.log
 *qr.png
 de

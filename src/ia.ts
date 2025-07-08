@@ -7,6 +7,15 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { getFunctionConfig } from "./Utils/configManager";
 import { obtenerTodasLasFechasDeCitas } from "./Utils/google";
+import { fileURLToPath } from "url";
+import path from "path";
+import dotenv from "dotenv";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Esto sube dos niveles desde dist/src → para llegar a la raíz del proyecto
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const toJid = (num: string) => (num.includes("@") ? num : `${num}@c.us`);
 

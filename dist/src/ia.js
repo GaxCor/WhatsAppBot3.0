@@ -5,6 +5,12 @@ import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
 import { getFunctionConfig } from "./Utils/configManager.js";
 import { obtenerTodasLasFechasDeCitas } from "./Utils/google.js";
+import { fileURLToPath } from "url";
+import path from "path";
+import dotenv from "dotenv";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 const toJid = (num) => (num.includes("@") ? num : `${num}@c.us`);
 export async function getFlujosDisponibles() {
     const conn = await getConnection();

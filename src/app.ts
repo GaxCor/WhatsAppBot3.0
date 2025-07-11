@@ -15,6 +15,7 @@ import {
   exportarTablasExcel,
   guardarEnBaseDeDatos,
   mensajeBOT,
+  obtenerEstadoGlobalBot,
   verificarEstadoBot,
 } from "./Utils/functions";
 import {
@@ -304,6 +305,24 @@ const main = async () => {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(
           JSON.stringify({ error: "No se pudo generar el archivo Excel" })
+        );
+      }
+    })
+  );
+
+  adapterProvider.server.get(
+    "/v1/estado-bot",
+    handleCtx(async (_bot, _req, res) => {
+      try {
+        const activo = await obtenerEstadoGlobalBot();
+        const estado = activo ? "Activo" : "Apagado";
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ estado }));
+      } catch (error) {
+        console.error("❌ Error al obtener estado del bot:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({ error: "No se pudo obtener el estado del bot." })
         );
       }
     })

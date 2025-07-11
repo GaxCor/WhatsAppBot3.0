@@ -433,3 +433,22 @@ export async function transcribirAudioDesdeMensaje(
 
   return transcription;
 }
+
+/**
+ * Verifica únicamente el estado global del bot (activo o no).
+ * @returns true si está activo globalmente, false si no o en caso de error.
+ */
+export async function obtenerEstadoGlobalBot(): Promise<boolean> {
+  const conn = await getConnection();
+  try {
+    const [rows] = await conn.execute(
+      "SELECT activo FROM global_state WHERE id = 1"
+    );
+    await conn.end();
+    return (rows as any[])[0]?.activo === 1;
+  } catch (error) {
+    console.error("❌ Error al verificar estado global:", error);
+    await conn.end();
+    return false;
+  }
+}

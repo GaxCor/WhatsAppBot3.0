@@ -7,7 +7,7 @@ import { formatInTimeZone } from "date-fns-tz";
 // Simula __dirname en módulos ES
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
+chalk.level = 3; // Forzar colores completos (1=básico, 2=256, 3=16M)
 const rutaConfig = path.join(__dirname, "../config.functions.json");
 
 export const mostrarEstadoBot = () => {

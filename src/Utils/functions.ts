@@ -109,11 +109,18 @@ export const formatearMensajeBot = (mensajes: string | string[]): string[] => {
     return Array.isArray(mensajes) ? mensajes : [mensajes];
   }
 
-  const textoEtiqueta = config.texto ?? "> CHATBOT";
+  const textoEtiqueta =
+    config.texto && config.texto.trim() !== "" ? config.texto : null;
+
   const mensajesArray = Array.isArray(mensajes) ? mensajes : [mensajes];
   const resultadoFinal: string[] = [];
 
   for (const mensaje of mensajesArray) {
+    if (!textoEtiqueta) {
+      resultadoFinal.push(mensaje);
+      continue;
+    }
+
     if (mensaje.length > 120 && mensaje.includes(". ")) {
       const partes = mensaje.split(/(?<=\.)\s+/);
       const ultimasPartes = partes.slice(0, -1).map((p) => p.trim());

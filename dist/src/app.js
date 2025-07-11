@@ -2,7 +2,7 @@ import path from "path";
 import { createBot, createProvider, createFlow, addKeyword, EVENTS, } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { actualizarEstadoBot, exportarChatCSV, exportarTablasExcel, } from "./Utils/functions.js";
+import { actualizarEstadoBot, exportarChatCSV, exportarTablasExcel, obtenerEstadoGlobalBot, } from "./Utils/functions.js";
 import { guardarTokenEnDB, handleAuthGoogle, } from "./Utils/google.js";
 import dotenv from "dotenv";
 import { agendarCita, flowRouter, masterFlow } from "./Flows/flows.js";
@@ -191,6 +191,19 @@ const main = async () => {
             console.error("❌ Error exportando tablas:", err);
             res.writeHead(500, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: "No se pudo generar el archivo Excel" }));
+        }
+    }));
+    adapterProvider.server.get("/v1/estado-bot", handleCtx(async (_bot, _req, res) => {
+        try {
+            const activo = await obtenerEstadoGlobalBot();
+            const estado = activo ? "Activo" : "Apagado";
+            res.writeHead(200, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ estado }));
+        }
+        catch (error) {
+            console.error("❌ Error al obtener estado del bot:", error);
+            res.writeHead(500, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ error: "No se pudo obtener el estado del bot." }));
         }
     }));
     adapterProvider.server.post("/oauth/token", async (req, res) => {

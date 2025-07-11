@@ -256,3 +256,16 @@ export async function transcribirAudioDesdeMensaje(ctx, provider) {
     fs.unlink(filePath, () => { });
     return transcription;
 }
+export async function obtenerEstadoGlobalBot() {
+    const conn = await getConnection();
+    try {
+        const [rows] = await conn.execute("SELECT activo FROM global_state WHERE id = 1");
+        await conn.end();
+        return rows[0]?.activo === 1;
+    }
+    catch (error) {
+        console.error("❌ Error al verificar estado global:", error);
+        await conn.end();
+        return false;
+    }
+}

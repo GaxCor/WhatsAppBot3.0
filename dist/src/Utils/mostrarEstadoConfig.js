@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { formatInTimeZone } from "date-fns-tz";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+chalk.level = 3;
 const rutaConfig = path.join(__dirname, "../config.functions.json");
 export const mostrarEstadoBot = () => {
     const zona = "America/Monterrey";

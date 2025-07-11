@@ -22,15 +22,13 @@ export const mostrarEstadoBot = async () => {
         console.log(chalk.bold("Estado de funciones del bot:"));
         const imprimirEstado = (clave, valor) => {
             if (typeof valor === "boolean") {
-                const texto = valor
-                    ? chalk.green.bold("ENCENDIDO")
-                    : chalk.red.bold("APAGADO");
+                const texto = valor ? chalk.green("Activo") : chalk.red("Desactivado");
                 console.log(`- ${clave}: ${texto}`);
             }
             else if (typeof valor === "object" && "enabled" in valor) {
                 const texto = valor.enabled
-                    ? chalk.green.bold("ENCENDIDO")
-                    : chalk.red.bold("APAGADO");
+                    ? chalk.green("Activo")
+                    : chalk.red("Desactivado");
                 console.log(`- ${clave}: ${texto}`);
             }
         };

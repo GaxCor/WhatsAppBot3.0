@@ -3,6 +3,7 @@ import path from "path";
 import chalk from "chalk";
 import { fileURLToPath } from "url";
 import { formatInTimeZone } from "date-fns-tz";
+import { obtenerEstadoGlobalBot } from "./functions.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 chalk.level = 3;
@@ -11,6 +12,16 @@ export const mostrarEstadoBot = () => {
     const zona = "America/Monterrey";
     const horaFormateada = formatInTimeZone(new Date(), zona, "HH:mm:ss");
     console.log(`\nReinicio del bot a las ${horaFormateada}\n`);
+    try {
+        const activo = obtenerEstadoGlobalBot();
+        const estadoTexto = activo
+            ? chalk.green.bold("ENCENDIDO")
+            : chalk.red.bold("APAGADO");
+        console.log(chalk.bold("Estado global del bot:"), estadoTexto, "\n");
+    }
+    catch (err) {
+        console.log(chalk.red("❌ No se pudo obtener el estado global del bot\n"));
+    }
     if (!fs.existsSync(rutaConfig)) {
         console.log(chalk.red("No se encontró el archivo config.functions.json en /src\n"));
         return;

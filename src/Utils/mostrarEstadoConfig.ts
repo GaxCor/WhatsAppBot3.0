@@ -3,6 +3,7 @@ import path from "path";
 import chalk from "chalk";
 import { fileURLToPath } from "url";
 import { formatInTimeZone } from "date-fns-tz";
+import { obtenerEstadoGlobalBot } from "./functions";
 
 // Simula __dirname en módulos ES
 const __filename = fileURLToPath(import.meta.url);
@@ -20,6 +21,17 @@ export const mostrarEstadoBot = () => {
   // });
 
   console.log(`\nReinicio del bot a las ${horaFormateada}\n`);
+
+  // Obtener e imprimir estado global
+  try {
+    const activo = obtenerEstadoGlobalBot();
+    const estadoTexto = activo
+      ? chalk.green.bold("ENCENDIDO")
+      : chalk.red.bold("APAGADO");
+    console.log(chalk.bold("Estado global del bot:"), estadoTexto, "\n");
+  } catch (err) {
+    console.log(chalk.red("❌ No se pudo obtener el estado global del bot\n"));
+  }
 
   if (!fs.existsSync(rutaConfig)) {
     console.log(

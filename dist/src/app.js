@@ -208,12 +208,16 @@ const main = async () => {
     }));
     adapterProvider.server.post("/v1/estado-global", async (req, res) => {
         const { estado } = req.body;
+        console.log("📩 Solicitud recibida en /v1/estado-global");
+        console.log("🔁 Estado solicitado:", estado);
         if (typeof estado !== "boolean") {
+            console.warn("⚠️ Estado no válido recibido:", estado);
             res.writeHead(400, { "Content-Type": "application/json" });
             return res.end(JSON.stringify({ error: "Se requiere un 'estado' booleano" }));
         }
         try {
             const resultado = await cambiarEstadoGlobalBot(estado);
+            console.log(`✅ Estado global actualizado a ${estado ? "Activo" : "Apagado"} con resultado:`, resultado);
             res.writeHead(200, { "Content-Type": "application/json" });
             return res.end(JSON.stringify({
                 success: resultado,

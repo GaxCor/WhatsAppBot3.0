@@ -452,3 +452,30 @@ export async function obtenerEstadoGlobalBot(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Cambia el estado global del bot en la base de datos.
+ * @param nuevoEstado - true para activar, false para desactivar
+ * @returns true si la operación fue exitosa, false si hubo error
+ */
+export async function cambiarEstadoGlobalBot(
+  nuevoEstado: boolean
+): Promise<boolean> {
+  const conn = await getConnection();
+  try {
+    await conn.execute("UPDATE global_state SET activo = ? WHERE id = 1", [
+      nuevoEstado,
+    ]);
+    await conn.end();
+    console.log(
+      `✅ Estado global actualizado a: ${
+        nuevoEstado ? "🟢 Activo" : "🔴 Inactivo"
+      }`
+    );
+    return true;
+  } catch (error) {
+    console.error("❌ Error actualizando estado global:", error);
+    await conn.end();
+    return false;
+  }
+}

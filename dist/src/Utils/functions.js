@@ -269,3 +269,19 @@ export async function obtenerEstadoGlobalBot() {
         return false;
     }
 }
+export async function cambiarEstadoGlobalBot(nuevoEstado) {
+    const conn = await getConnection();
+    try {
+        await conn.execute("UPDATE global_state SET activo = ? WHERE id = 1", [
+            nuevoEstado,
+        ]);
+        await conn.end();
+        console.log(`✅ Estado global actualizado a: ${nuevoEstado ? "🟢 Activo" : "🔴 Inactivo"}`);
+        return true;
+    }
+    catch (error) {
+        console.error("❌ Error actualizando estado global:", error);
+        await conn.end();
+        return false;
+    }
+}

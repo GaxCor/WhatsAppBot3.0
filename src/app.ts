@@ -11,6 +11,7 @@ import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import {
   actualizarEstadoBot,
+  cambiarEstadoGlobalBot,
   exportarChatCSV,
   exportarTablasExcel,
   guardarEnBaseDeDatos,
@@ -326,6 +327,37 @@ const main = async () => {
         );
       }
     })
+  );
+
+  adapterProvider.server.post(
+    "/v1/estado-global",
+    async (req: any, res: any) => {
+      const { estado } = req.body;
+
+      if (typeof estado !== "boolean") {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({ error: "Se requiere un 'estado' booleano" })
+        );
+      }
+
+      try {
+        const resultado = await cambiarEstadoGlobalBot(estado);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({
+            success: resultado,
+            nuevoEstado: estado,
+          })
+        );
+      } catch (err) {
+        console.error("❌ Error cambiando estado global:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({ error: "Error interno al cambiar el estado global" })
+        );
+      }
+    }
   );
 
   adapterProvider.server.post("/oauth/token", async (req: any, res: any) => {

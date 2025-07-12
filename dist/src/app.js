@@ -179,7 +179,7 @@ const main = async () => {
     }));
     adapterProvider.server.get("/v1/exportar-tablas", handleCtx(async (_bot, _req, res) => {
         try {
-            const filePath = await exportarTablasExcel("flujos", "global_state", "infobot", "usuarios");
+            const filePath = await exportarTablasExcel("flujos", "global_state", "infobot", "usuarios", "mensajes");
             res.writeHead(200, {
                 "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "Content-Disposition": `attachment; filename=${path.basename(filePath)}`,

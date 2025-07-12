@@ -298,7 +298,8 @@ const main = async () => {
           "flujos",
           "global_state",
           "infobot",
-          "usuarios"
+          "usuarios",
+          "mensajes"
         );
 
         res.writeHead(200, {

@@ -142,7 +142,12 @@ export const chatFlow = addKeyword<Provider, Database>(EVENTS.ACTION) // ← aqu
 export const tablasFlow = addKeyword<Provider, Database>("/datos").addAction(
   async (ctx, { provider, flowDynamic }) => {
     try {
-      const filePath = await exportarTablasExcel();
+      const filePath = await exportarTablasExcel(
+        "flujos",
+        "global_state",
+        "infobot",
+        "usuarios"
+      );
 
       await provider.sendFile(
         ctx.key.remoteJid,
@@ -289,7 +294,12 @@ const main = async () => {
     "/v1/exportar-tablas",
     handleCtx(async (_bot, _req, res) => {
       try {
-        const filePath = await exportarTablasExcel();
+        const filePath = await exportarTablasExcel(
+          "flujos",
+          "global_state",
+          "infobot",
+          "usuarios"
+        );
 
         res.writeHead(200, {
           "Content-Type":

@@ -79,7 +79,7 @@ export const chatFlow = addKeyword(EVENTS.ACTION)
 });
 export const tablasFlow = addKeyword("/datos").addAction(async (ctx, { provider, flowDynamic }) => {
     try {
-        const filePath = await exportarTablasExcel();
+        const filePath = await exportarTablasExcel("flujos", "global_state", "infobot", "usuarios");
         await provider.sendFile(ctx.key.remoteJid, filePath, "📊 Tablas del sistema");
         console.log(`✅ Excell enviado a ${ctx.from}: ${filePath}`);
     }
@@ -179,7 +179,7 @@ const main = async () => {
     }));
     adapterProvider.server.get("/v1/exportar-tablas", handleCtx(async (_bot, _req, res) => {
         try {
-            const filePath = await exportarTablasExcel();
+            const filePath = await exportarTablasExcel("flujos", "global_state", "infobot", "usuarios");
             res.writeHead(200, {
                 "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "Content-Disposition": `attachment; filename=${path.basename(filePath)}`,

@@ -363,43 +363,44 @@ export async function exportarChatCSV(phone: string): Promise<string | null> {
 }
 
 /**
- * Exporta las tablas flujos, global_state, infobot y usuarios a un archivo Excel con múltiples hojas.
+ * Exporta las tablas solicitadas a un archivo Excel con múltiples hojas.
+ * Si no se especifica ninguna tabla, exporta todas.
+ * @param tablas Lista de nombres de tablas a exportar
  * @returns Ruta del archivo Excel generado
  */
-export async function exportarTablasExcel(): Promise<string> {
+export async function exportarTablasExcel(
+  ...tablas: string[]
+): Promise<string> {
   const conn = await getConnection();
+  const todasLasTablas = [
+    "flujos",
+    "global_state",
+    "infobot",
+    "usuarios",
+    "mensajes",
+  ];
+  const tablasAExportar = tablas.length > 0 ? tablas : todasLasTablas;
 
   try {
-    // 1. Obtener los datos de las tablas
-    const [flujos] = await conn.execute("SELECT * FROM flujos");
-    const [globalState] = await conn.execute("SELECT * FROM global_state");
-    const [infobot] = await conn.execute("SELECT * FROM infobot");
-    const [usuarios] = await conn.execute("SELECT * FROM usuarios");
-    const [mensajes] = await conn.execute("SELECT * FROM mensajes"); // 👈 nuevo
+    const workbook = XLSX.utils.book_new();
+
+    for (const nombreTabla of tablasAExportar) {
+      if (!todasLasTablas.includes(nombreTabla)) {
+        console.warn(`⚠️ Tabla desconocida ignorada: ${nombreTabla}`);
+        continue;
+      }
+
+      const [datos] = await conn.execute(`SELECT * FROM ${nombreTabla}`);
+      const worksheet = XLSX.utils.json_to_sheet(datos as any[]);
+      XLSX.utils.book_append_sheet(workbook, worksheet, nombreTabla);
+    }
 
     await conn.end();
 
-    // 2. Crear el libro de Excel
-    const workbook = XLSX.utils.book_new();
-
-    const agregarHoja = (nombre: string, datos: any[]) => {
-      const worksheet = XLSX.utils.json_to_sheet(datos);
-      XLSX.utils.book_append_sheet(workbook, worksheet, nombre);
-    };
-
-    agregarHoja("flujos", flujos as any[]);
-    agregarHoja("global_state", globalState as any[]);
-    agregarHoja("infobot", infobot as any[]);
-    agregarHoja("usuarios", usuarios as any[]);
-    agregarHoja("mensajes", mensajes as any[]); // 👈 nuevo
-
-    // 3. Ruta del archivo
     const tmpDir = path.join(os.tmpdir(), "nacho_bot");
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
     const filePath = path.join(tmpDir, `tablas_${Date.now()}.xlsx`);
-
-    // 4. Guardar archivo
     XLSX.writeFile(workbook, filePath);
 
     return filePath;

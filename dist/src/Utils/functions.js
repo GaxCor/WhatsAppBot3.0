@@ -212,25 +212,28 @@ export async function exportarChatCSV(phone) {
     fs.writeFileSync(filePath, csv, "utf8");
     return filePath;
 }
-export async function exportarTablasExcel() {
+export async function exportarTablasExcel(...tablas) {
     const conn = await getConnection();
+    const todasLasTablas = [
+        "flujos",
+        "global_state",
+        "infobot",
+        "usuarios",
+        "mensajes",
+    ];
+    const tablasAExportar = tablas.length > 0 ? tablas : todasLasTablas;
     try {
-        const [flujos] = await conn.execute("SELECT * FROM flujos");
-        const [globalState] = await conn.execute("SELECT * FROM global_state");
-        const [infobot] = await conn.execute("SELECT * FROM infobot");
-        const [usuarios] = await conn.execute("SELECT * FROM usuarios");
-        const [mensajes] = await conn.execute("SELECT * FROM mensajes");
-        await conn.end();
         const workbook = XLSX.utils.book_new();
-        const agregarHoja = (nombre, datos) => {
+        for (const nombreTabla of tablasAExportar) {
+            if (!todasLasTablas.includes(nombreTabla)) {
+                console.warn(`⚠️ Tabla desconocida ignorada: ${nombreTabla}`);
+                continue;
+            }
+            const [datos] = await conn.execute(`SELECT * FROM ${nombreTabla}`);
             const worksheet = XLSX.utils.json_to_sheet(datos);
-            XLSX.utils.book_append_sheet(workbook, worksheet, nombre);
-        };
-        agregarHoja("flujos", flujos);
-        agregarHoja("global_state", globalState);
-        agregarHoja("infobot", infobot);
-        agregarHoja("usuarios", usuarios);
-        agregarHoja("mensajes", mensajes);
+            XLSX.utils.book_append_sheet(workbook, worksheet, nombreTabla);
+        }
+        await conn.end();
         const tmpDir = path.join(os.tmpdir(), "nacho_bot");
         if (!fs.existsSync(tmpDir))
             fs.mkdirSync(tmpDir, { recursive: true });

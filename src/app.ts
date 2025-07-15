@@ -11,6 +11,7 @@ import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
 import {
   actualizarEstadoBot,
+  actualizarUsuario,
   cambiarEstadoGlobalBot,
   exportarChatCSV,
   exportarTablasExcel,
@@ -403,6 +404,32 @@ const main = async () => {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(
           JSON.stringify({ error: "No se pudo generar el archivo Excel" })
+        );
+      }
+    })
+  );
+
+  adapterProvider.server.post(
+    "/v1/usuarios/actualizar",
+    handleCtx(async (_bot, req, res) => {
+      const { id, name, detalles, state } = req.body;
+
+      if (!id) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ error: "Se requiere el campo 'id'." }));
+      }
+
+      try {
+        await actualizarUsuario({ id, name, detalles, state });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({ status: "Usuario actualizado con éxito." })
+        );
+      } catch (error) {
+        console.error("❌ Error actualizando usuario:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(
+          JSON.stringify({ error: "No se pudo actualizar el usuario." })
         );
       }
     })

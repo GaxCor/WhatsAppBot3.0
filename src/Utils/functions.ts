@@ -487,3 +487,58 @@ export async function cambiarEstadoGlobalBot(
     return false;
   }
 }
+
+interface ActualizarUsuarioArgs {
+  id: number;
+  name?: string;
+  detalles?: string;
+  state?: boolean | string | number;
+}
+
+/**
+ * Actualiza uno o más campos (name, detalles, state) del usuario dado por su ID.
+ */
+export async function actualizarUsuario({
+  id,
+  name,
+  detalles,
+  state,
+}: ActualizarUsuarioArgs): Promise<void> {
+  const conn = await getConnection();
+  try {
+    const campos: string[] = [];
+    const valores: any[] = [];
+
+    if (name !== undefined) {
+      campos.push("name = ?");
+      valores.push(name);
+    }
+
+    if (detalles !== undefined) {
+      campos.push("detalles = ?");
+      valores.push(detalles);
+    }
+
+    if (state !== undefined) {
+      campos.push("state = ?");
+      valores.push(state);
+    }
+
+    if (campos.length === 0) {
+      console.log("⚠️ No hay campos para actualizar.");
+      await conn.end();
+      return;
+    }
+
+    valores.push(id);
+    const sql = `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`;
+
+    await conn.execute(sql, valores);
+    console.log(`✅ Usuario ${id} actualizado: ${campos.join(", ")}`);
+    await conn.end();
+  } catch (error) {
+    console.error("❌ Error actualizando usuario:", error);
+    await conn.end();
+    throw error;
+  }
+}

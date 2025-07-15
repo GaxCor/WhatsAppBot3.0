@@ -292,3 +292,37 @@ export async function cambiarEstadoGlobalBot(nuevoEstado) {
         return false;
     }
 }
+export async function actualizarUsuario({ id, name, detalles, state, }) {
+    const conn = await getConnection();
+    try {
+        const campos = [];
+        const valores = [];
+        if (name !== undefined) {
+            campos.push("name = ?");
+            valores.push(name);
+        }
+        if (detalles !== undefined) {
+            campos.push("detalles = ?");
+            valores.push(detalles);
+        }
+        if (state !== undefined) {
+            campos.push("state = ?");
+            valores.push(state);
+        }
+        if (campos.length === 0) {
+            console.log("⚠️ No hay campos para actualizar.");
+            await conn.end();
+            return;
+        }
+        valores.push(id);
+        const sql = `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`;
+        await conn.execute(sql, valores);
+        console.log(`✅ Usuario ${id} actualizado: ${campos.join(", ")}`);
+        await conn.end();
+    }
+    catch (error) {
+        console.error("❌ Error actualizando usuario:", error);
+        await conn.end();
+        throw error;
+    }
+}

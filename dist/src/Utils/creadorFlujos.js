@@ -59,6 +59,10 @@ async function detectarIntencionConIA(mensaje, historial) {
     const historiaTexto = historial
         .map((h) => `🧑 ${h.user}\n🤖 ${h.bot}`)
         .join("\n\n");
+    const flujos = globalState.get("flujosTemporales") || [];
+    const flujosTexto = flujos.length
+        ? flujos.map(ficha).join("\n\n")
+        : "— No hay flujos guardados —";
     const prompt = `
 Eres un asistente experto en construir flujos conversacionales para bots de WhatsApp.
 
@@ -81,6 +85,9 @@ Responde SIEMPRE SOLO con un JSON con esta estructura:
   "respuesta": "texto para el usuario",
   "args": { ...opcional... }
 }
+
+Flujos existentes:
+${flujosTexto}
 
 Historial de conversación:
 ${historiaTexto}

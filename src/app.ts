@@ -382,6 +382,32 @@ const main = async () => {
     }
   );
 
+  adapterProvider.server.get(
+    "/v1/usuarios/excel",
+    handleCtx(async (_bot, _req, res) => {
+      try {
+        const filePath = await exportarTablasExcel("usuarios");
+
+        res.writeHead(200, {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename=${path.basename(
+            filePath
+          )}`,
+        });
+
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+      } catch (err) {
+        console.error("❌ Error exportando usuarios:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({ error: "No se pudo generar el archivo Excel" })
+        );
+      }
+    })
+  );
+
   adapterProvider.server.post("/oauth/token", async (req: any, res: any) => {
     const { tokens, bot_id } = req.body;
 

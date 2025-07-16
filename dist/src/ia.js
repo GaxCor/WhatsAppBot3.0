@@ -33,7 +33,7 @@ export async function ejecutarFlujo(ctx, flujo, opciones) {
             await mensajeBOT({ ctx, flowDynamic, mensaje: respuestaIA.trim() });
         }
         if (flujo.imagen_url?.startsWith("http")) {
-            await provider.sendImage(jid, flujo.imagen_url, "");
+            await provider.sendMedia(jid, flujo.imagen_url, "");
             await guardarEnBaseDeDatos({
                 phone: number,
                 message: "[Imagen enviada]",

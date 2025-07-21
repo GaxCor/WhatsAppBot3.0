@@ -38,6 +38,7 @@ import { buscarFlujoDesdeIA } from "./ia";
 import { interpretarMensajeParaFlujo } from "./Utils/creadorFlujos";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { formatInTimeZone } from "date-fns-tz";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -218,6 +219,25 @@ const main = async () => {
     handleCtx(async (bot, req, res) => {
       const { number, message, urlMedia } = req.body;
       await bot.sendMessage(number, message, { media: urlMedia ?? null });
+      return res.end("sended");
+    })
+  );
+
+  adapterProvider.server.post(
+    "/v1/mensaje",
+    handleCtx(async (bot, req, res) => {
+      const { number, name, message, urlMedia } = req.body;
+      await bot.sendMessage(number, message, { media: urlMedia ?? null });
+      const timestamp = Date.now(); // listo
+
+      await guardarEnBaseDeDatos({
+        phone: number,
+        name: name,
+        message: message,
+        source: "WHA",
+        messageId: "API",
+        timestamp: timestamp,
+      });
       return res.end("sended");
     })
   );

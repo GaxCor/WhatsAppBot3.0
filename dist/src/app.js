@@ -2,7 +2,7 @@ import path from "path";
 import { createBot, createProvider, createFlow, addKeyword, EVENTS, } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { actualizarEstadoBot, actualizarUsuario, cambiarEstadoGlobalBot, exportarChatCSV, exportarTablasExcel, obtenerEstadoGlobalBot, } from "./Utils/functions.js";
+import { actualizarEstadoBot, actualizarUsuario, cambiarEstadoGlobalBot, exportarChatCSV, exportarTablasExcel, guardarEnBaseDeDatos, obtenerEstadoGlobalBot, } from "./Utils/functions.js";
 import { guardarTokenEnDB, handleAuthGoogle, } from "./Utils/google.js";
 import dotenv from "dotenv";
 import { agendarCita, flowRouter, masterFlow } from "./Flows/flows.js";
@@ -126,6 +126,20 @@ const main = async () => {
     adapterProvider.server.post("/v1/messages", handleCtx(async (bot, req, res) => {
         const { number, message, urlMedia } = req.body;
         await bot.sendMessage(number, message, { media: urlMedia ?? null });
+        return res.end("sended");
+    }));
+    adapterProvider.server.post("/v1/mensaje", handleCtx(async (bot, req, res) => {
+        const { number, name, message, urlMedia } = req.body;
+        await bot.sendMessage(number, message, { media: urlMedia ?? null });
+        const timestamp = Date.now();
+        await guardarEnBaseDeDatos({
+            phone: number,
+            name: name,
+            message: message,
+            source: "WHA",
+            messageId: "API",
+            timestamp: timestamp,
+        });
         return res.end("sended");
     }));
     adapterProvider.server.post("/v1/register", handleCtx(async (bot, req, res) => {

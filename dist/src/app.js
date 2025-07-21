@@ -135,7 +135,7 @@ const main = async () => {
         await guardarEnBaseDeDatos({
             phone: number,
             name: name,
-            message: message,
+            message: message + urlMedia,
             source: "WHA",
             messageId: "API",
             timestamp: timestamp,
@@ -258,7 +258,7 @@ const main = async () => {
     });
     adapterProvider.server.get("/v1/usuarios/excel", handleCtx(async (_bot, _req, res) => {
         try {
-            const filePath = await exportarTablasExcel("usuarios");
+            const filePath = await exportarTablasExcel("usuarios", "mensajes");
             res.writeHead(200, {
                 "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "Content-Disposition": `attachment; filename=${path.basename(filePath)}`,

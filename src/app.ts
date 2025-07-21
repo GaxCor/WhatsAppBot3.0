@@ -164,6 +164,25 @@ export const tablasFlow = addKeyword<Provider, Database>("/datos").addAction(
   }
 );
 
+export const chatsFlow = addKeyword<Provider, Database>("/chats").addAction(
+  async (ctx, { provider, flowDynamic }) => {
+    try {
+      const filePath = await exportarTablasExcel("mensajes");
+
+      await provider.sendFile(
+        ctx.key.remoteJid,
+        filePath,
+        "📊 Tablas del sistema"
+      );
+
+      console.log(`✅ Excell enviado a ${ctx.from}: ${filePath}`);
+    } catch (error) {
+      console.error("❌ Error al generar/enviar archivo Excel:", error);
+      await flowDynamic("⚠️ No pude generar el archivo. Intenta más tarde.");
+    }
+  }
+);
+
 const main = async () => {
   const adapterFlow = createFlow([
     flowRouter,
@@ -174,6 +193,7 @@ const main = async () => {
     tablasFlow,
     agendarCita,
     pruebaFlow,
+    chatsFlow,
   ]);
 
   const adapterProvider = createProvider(Provider, { writeMyself: "both" });

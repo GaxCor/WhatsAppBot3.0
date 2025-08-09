@@ -168,7 +168,7 @@ ${(flujos as any[]).map((f) => `- ${f.nombre}: ${f.prompt}`).join("\n")}
 `;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4.1",
+    model: "gpt-5",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: `Mensaje del cliente: ${mensaje}` },
@@ -281,7 +281,7 @@ Texto del usuario:
 `;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4.1",
+    model: "gpt-5",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.3,
   });

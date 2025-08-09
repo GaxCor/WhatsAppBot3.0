@@ -154,6 +154,7 @@ Instrucciones clave:
 - Si incluyes horarios, escríbelos en un solo bloque claro (ej: "Lunes a viernes de 8:30 a 18:30 h, sábados de 9:00 a 14:00 h").
 - No uses listas, saltos de línea ni viñetas. El mensaje debe ser una sola unidad continua de texto.
 - Recuerda que el mensaje se formatea antes de enviarse, así que evita frases largas o compuestas que puedan romperse mal.
+- No seas repetitivo, si tienes que decir algo varias veces, intenta reformularlo.
 
 Devuelve un JSON con este formato:
 {
